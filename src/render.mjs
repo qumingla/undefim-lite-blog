@@ -44,7 +44,10 @@ function sidebarProfile(siteData, stats) {
         }
         <h2>${escapeHtml(site.authorName)}</h2>
         <p>${escapeHtml(site.authorMotto)}</p>
-        <div class="profile-location">${escapeHtml(site.authorLocation)}</div>
+        <div class="profile-location">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="vertical-align: -3px; margin-right: 4px;"><path d="M12 23.7279L5.63604 17.364C2.12132 13.8492 2.12132 8.15076 5.63604 4.63604C9.15076 1.12132 14.8492 1.12132 18.364 4.63604C21.8787 8.15076 21.8787 13.8492 18.364 17.364L12 23.7279ZM12 13C13.6569 13 15 11.6569 15 10C15 8.34315 13.6569 7 12 7C10.3431 7 9 8.34315 9 10C9 11.6569 10.3431 13 12 13Z"></path></svg>
+          ${escapeHtml(site.authorLocation)}
+        </div>
       </div>
       <div class="profile-stats">
         <div>
@@ -61,9 +64,15 @@ function sidebarProfile(siteData, stats) {
         </div>
       </div>
       <div class="profile-links">
-        <a href="mailto:${escapeHtml(site.authorEmail)}">邮箱</a>
-        <a href="${escapeHtml(site.github)}" target="_blank" rel="noreferrer">GitHub</a>
-        <a href="https://wpa.qq.com/msgrd?v=3&uin=${escapeHtml(site.qq)}&site=qq&menu=yes" target="_blank" rel="noreferrer">QQ</a>
+        <a href="mailto:${escapeHtml(site.authorEmail)}" title="邮箱">
+          <svg viewBox="0 0 24 24"><path d="M3 3H21C21.5523 3 22 3.44772 22 4V20C22 20.5523 21.5523 21 21 21H3C2.44772 21 2 20.5523 2 20V4C2 3.44772 2.44772 3 3 3ZM20 7.23792L12.0718 14.338L4 7.21594V19H20V7.23792ZM4.51146 5L12.0619 11.662L19.501 5H4.51146Z"></path></svg>
+        </a>
+        <a href="${escapeHtml(site.github)}" target="_blank" rel="noreferrer" title="GitHub">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.475 2 2 6.475 2 12C2 16.425 4.8625 20.1625 8.8375 21.5C9.3375 21.5875 9.525 21.275 9.525 21.0125C9.525 20.775 9.5125 19.9875 9.5125 19.15C6.7375 19.75 6.15 17.8125 6.15 17.8125C5.6875 16.65 5.0375 16.3375 5.0375 16.3375C4.125 15.7125 5.1 15.725 5.1 15.725C6.1125 15.7875 6.6375 16.7625 6.6375 16.7625C7.5375 18.3 8.9875 17.85 9.5625 17.6C9.65 16.95 9.9125 16.5 10.2 16.2375C7.975 15.9875 5.65 15.125 5.65 11.4375C5.65 10.3875 6.025 9.525 6.675 8.85C6.575 8.6 6.2375 7.625 6.775 6.3125C6.775 6.3125 7.6125 6.05 9.525 7.3375C10.325 7.1125 11.175 7 12 7C12.825 7 13.675 7.1125 14.475 7.3375C16.3875 6.05 17.225 6.3125 17.225 6.3125C17.7625 7.625 17.425 8.6 17.325 8.85C17.975 9.525 18.35 10.3875 18.35 11.4375C18.35 15.1375 16.0125 15.9875 13.7875 16.2375C14.15 16.55 14.475 17.15 14.475 18.1C14.475 19.4625 14.4625 20.5625 14.4625 21.0125C14.4625 21.2875 14.65 21.6 15.175 21.5C19.1375 20.15 22 16.425 22 12C22 6.475 17.525 2 12 2Z"></path></svg>
+        </a>
+        <a href="https://wpa.qq.com/msgrd?v=3&uin=${escapeHtml(site.qq)}&site=qq&menu=yes" target="_blank" rel="noreferrer" title="QQ">
+          <svg viewBox="0 0 24 24"><path d="M12.003 2.03666C15.4854 2.12214 18.4418 4.60673 19.3499 8.01201C19.5316 8.69343 19.6469 9.38707 19.6644 10.0967C19.8654 11.0827 20.2547 12.0227 20.8037 12.8682C22.0911 14.851 22.1834 17.4816 21.0117 19.4938C20.6728 20.0762 19.9856 20.3541 19.3475 20.1873C18.5779 19.9862 17.7712 20.0099 17.0142 20.2524C16.892 20.2915 16.8291 20.4283 16.8824 20.5401C17.3776 21.5796 17.2917 22.8225 16.5937 23.7143C16.1472 24.2847 15.4281 24.2255 14.8686 23.8344C13.2081 22.6738 10.8263 22.6738 9.16584 23.8344C8.60634 24.2255 7.88725 24.2847 7.44079 23.7143C6.74281 22.8225 6.65685 21.5796 7.1521 20.5401C7.20542 20.4283 7.14249 20.2915 7.0203 20.2524C6.26332 20.0099 5.45664 19.9862 4.68695 20.1873C4.04892 20.3541 3.36166 20.0762 3.0228 19.4938C1.85114 17.4816 1.94336 14.851 3.23075 12.8682C3.77983 12.0227 4.1691 11.0827 4.37004 10.0967C4.38755 9.38707 4.50285 8.69343 4.68456 8.01201C5.59273 4.60673 8.54904 2.12214 12.0315 2.03666H12.003Z"></path></svg>
+        </a>
       </div>
     </section>
   `;
@@ -429,7 +438,7 @@ export function renderLinksPage({ siteData, stats, currentPath }) {
         <div class="friend-grid">
           ${linkCards || '<p class="empty">暂无友链</p>'}
         </div>
-        <div class="article-body">${page.contentHtml || ""}</div>
+        <div class="article-body links-body">${page.contentHtml || ""}</div>
       </div>
     </article>
   `;

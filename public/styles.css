@@ -1,12 +1,12 @@
 :root {
   color-scheme: light;
   --bg: #eef5f7;
-  --panel: rgba(255, 255, 255, 0.82);
-  --panel-strong: rgba(255, 255, 255, 0.92);
+  --panel: rgba(255, 255, 255, 0.94);
+  --panel-strong: rgba(255, 255, 255, 0.98);
   --text: #112129;
   --muted: #556a73;
   --line: rgba(17, 33, 41, 0.1);
-  --shadow: 0 18px 50px rgba(20, 44, 54, 0.12);
+  --shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
 }
 
 @font-face {
@@ -18,12 +18,12 @@
 html.dark {
   color-scheme: dark;
   --bg: #06131a;
-  --panel: rgba(13, 28, 36, 0.82);
-  --panel-strong: rgba(14, 32, 41, 0.9);
+  --panel: rgba(13, 28, 36, 0.94);
+  --panel-strong: rgba(14, 32, 41, 0.98);
   --text: #e9f2f3;
   --muted: #a8bac1;
   --line: rgba(255, 255, 255, 0.1);
-  --shadow: 0 20px 56px rgba(0, 0, 0, 0.28);
+  --shadow: 0 4px 10px rgba(0, 0, 0, 0.28);
 }
 
 * {
@@ -38,14 +38,12 @@ body {
 
 body {
   background:
-    radial-gradient(circle at top left, rgba(0, 199, 252, 0.16), transparent 25%),
-    radial-gradient(circle at top right, rgba(0, 102, 145, 0.16), transparent 22%),
-    linear-gradient(180deg, rgba(238, 245, 247, 0.94), rgba(238, 245, 247, 0.98)),
     var(--bg-image, none) center top / cover fixed no-repeat,
     var(--bg);
   color: var(--text);
   font-family: "Dream Font", "Kaiti SC", "STKaiti", "Noto Serif SC", serif;
-  line-height: 1.75;
+  font-size: 15px;
+  line-height: 25px;
 }
 
 body.admin-page,
@@ -228,18 +226,22 @@ html.dark .search-bar input {
   padding: 0 22px 40px;
 }
 
-.page-side,
+.page-side {
+  min-width: 0;
+  position: sticky;
+  top: 90px;
+  height: max-content;
+}
+
 .page-main {
   min-width: 0;
 }
 
 .card {
   margin-bottom: 24px;
-  border: 1px solid var(--line);
-  border-radius: 30px;
+  border-radius: 8px;
   background: var(--panel);
   box-shadow: var(--shadow);
-  backdrop-filter: blur(18px);
   overflow: hidden;
 }
 
@@ -292,10 +294,10 @@ html.dark .section-label {
 
 .avatar,
 .avatar-fallback {
-  width: 98px;
-  height: 98px;
+  width: 90px;
+  height: 90px;
   margin: 0 auto 18px;
-  border-radius: 28px;
+  border-radius: 50%;
   object-fit: cover;
   box-shadow: 0 18px 38px rgba(0, 0, 0, 0.16);
 }
@@ -346,11 +348,11 @@ html.dark .section-label {
 }
 
 .profile-links {
-  display: grid;
-  gap: 10px;
+  display: flex;
+  justify-content: center;
+  gap: 14px;
 }
 
-.profile-links a,
 .sidebar-category,
 .friend-mini,
 .friend-card {
@@ -364,11 +366,33 @@ html.dark .section-label {
   transition: 180ms ease;
 }
 
-.profile-links a:hover,
 .sidebar-category:hover,
 .friend-mini:hover,
 .friend-card:hover {
   transform: translateY(-2px);
+}
+
+.profile-links a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--panel-strong);
+  transition: 180ms ease;
+  color: var(--muted);
+}
+
+.profile-links a svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.profile-links a:hover {
+  transform: translateY(-2px);
+  color: var(--accent);
 }
 
 .card-head {
@@ -457,6 +481,17 @@ html.dark .section-label {
   line-height: 1.25;
 }
 
+.article-body h3::before {
+  content: "";
+  display: inline-block;
+  width: 4px;
+  height: 18px;
+  background-color: var(--accent);
+  vertical-align: middle;
+  margin-right: 8px;
+  border-radius: 2px;
+}
+
 .article-body p,
 .article-body ul,
 .article-body ol,
@@ -485,6 +520,8 @@ html.dark .section-label {
 
 .article-body code {
   font-family: "SFMono-Regular", "Menlo", monospace;
+  font-size: 13.86px;
+  line-height: 26.18px;
 }
 
 .article-body :not(pre) > code {
@@ -515,6 +552,10 @@ html.dark .article-body td {
 .article-body img {
   border-radius: 22px;
   box-shadow: var(--shadow);
+}
+
+.links-body table {
+  display: none;
 }
 
 .article-nav-grid {
@@ -777,19 +818,11 @@ html.dark .article-body td {
 
 @media (max-width: 1200px) {
   .page-shell {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: 270px minmax(0, 1fr);
   }
 
-  .left-side,
   .right-side {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 24px;
-  }
-
-  .left-side > .card,
-  .right-side > .card {
-    margin-bottom: 0;
+    display: none;
   }
 }
 
@@ -817,6 +850,18 @@ html.dark .article-body td {
 
   .admin-nav {
     position: static;
+  }
+
+  .page-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page-side {
+    position: static;
+  }
+
+  .right-side {
+    display: block;
   }
 }
 
