@@ -1,0 +1,25 @@
+services:
+  blog:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: undefi-lite-blog
+    restart: unless-stopped
+    ports:
+      - "${PORT:-4321}:4321"
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 4321
+      BLOG_ADMIN_USER: "${BLOG_ADMIN_USER:-admin}"
+      BLOG_ADMIN_PASSWORD: "${BLOG_ADMIN_PASSWORD:-change-me-now}"
+      BLOG_ADMIN_PATH: "${BLOG_ADMIN_PATH:-/dashboard}"
+    volumes:
+      - ./storage:/app/storage
+      - ./public/mirror:/app/public/mirror
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:4321/ >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
