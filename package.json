@@ -1,11 +1,13 @@
 {
-  "name": "undefi-lite-blog",
+  "name": "undefim-lite-blog",
   "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "node server.mjs",
     "start": "node server.mjs",
-    "import": "node scripts/import-site.mjs"
+    "import": "node scripts/import-site.mjs",
+    "check": "node scripts/validate-site.mjs && node --check server.mjs && node --check src/app.mjs && node --check src/render.mjs && node --check src/store.mjs && node --check src/utils.mjs && node --check scripts/import-site.mjs && node --check scripts/validate-site.mjs",
+    "test": "npm run check"
   }
 }

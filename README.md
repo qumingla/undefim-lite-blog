@@ -1,15 +1,29 @@
-# Undefi Lite Blog
+# undefim-lite-blog
 
-一个零依赖 Node 博客，按 `https://undefi.me` 当前样式做了轻量复刻，保留：
+一个零依赖、可自托管的轻量博客，按 `https://undefi.me` 当前站点做了重构式复刻，保留博客常用能力，去掉 Halo 这类重平台的运行负担。
 
-- 文章列表、文章详情、分类页、关于页
-- 搜索
-- 访客统计
-- 友链
-- 隐藏后台
-- 主题切换、点击烟花、背景氛围等前端特效
+## 特性
 
-## 启动
+- 三栏卡片式博客首页、文章详情页、分类页、关于页、友链页
+- 本地全文搜索
+- 访客统计和页面访问量统计
+- 隐藏后台，不在前台暴露入口
+- 后台可直接编辑站点设置、页面、文章和友链
+- 原站资源镜像导入，尽量减少外部依赖
+- 主题切换、背景氛围、点击烟花等前端特效
+- 原生 Node.js 运行，无第三方 npm 依赖
+- 支持 Docker Compose 部署
+
+## 技术栈
+
+- Node.js 24
+- 原生 `http` 服务
+- JSON 文件存储
+- 原生 HTML + CSS + 少量前端脚本
+
+## 快速开始
+
+### 本地运行
 
 ```bash
 npm run import
@@ -25,9 +39,7 @@ npm start
 
 如果设置了 `BLOG_ADMIN_PATH`，后台路径会变成你指定的值。
 
-## Docker Compose
-
-先准备环境变量：
+### Docker Compose
 
 ```bash
 cp .env.example .env
@@ -61,14 +73,63 @@ Compose 会持久化这两个目录：
 - `./storage`
 - `./public/mirror`
 
-## 数据位置
+## 项目结构
 
-- 站点内容：`storage/site.json`
-- 访客统计：`storage/stats.json`
-- 镜像资源：`public/mirror/`
+```text
+.
+├── public/            # 样式、前端脚本、镜像资源
+├── scripts/           # 导入和校验脚本
+├── src/               # 服务端路由、渲染、存储层
+├── storage/           # 站点内容和统计数据
+├── server.mjs         # 应用入口
+├── compose.yml        # Docker Compose 配置
+└── Dockerfile         # 容器镜像定义
+```
 
-## 说明
+## 数据说明
 
-- `storage/site.json` 是主要内容源，后台修改会直接写回这个文件。
-- `storage/stats.json` 会随着访问实时更新，默认已加入 `.gitignore`。
-- 导入器会优先镜像原站资源；如果原站里某些外部图片或失效附件无法下载，会保留原链接，不阻塞整体迁移。
+- `storage/site.json` 是站点主内容源，后台修改会直接写回这里。
+- `storage/stats.json` 记录访客和页面访问量，默认不会提交到 Git。
+- `public/mirror/` 保存导入时镜像下来的站点资源。
+
+## 开发与校验
+
+代码检查：
+
+```bash
+npm run check
+```
+
+这个检查会验证：
+
+- 站点 JSON 结构是否可用
+- 服务端与脚本文件是否通过 Node 语法检查
+- CI 是否能在无依赖安装的前提下跑通
+
+## 内容导入
+
+默认会从 `https://undefi.me` 导入数据：
+
+```bash
+npm run import
+```
+
+也可以改成别的源站：
+
+```bash
+SOURCE_URL='https://example.com' npm run import
+```
+
+导入器会优先镜像源站资源；如果遇到外部图片或已失效附件，会保留原链接而不是中断整个迁移流程。
+
+## 后台说明
+
+- 默认后台用户：`admin`
+- 默认后台路径：`/dashboard`
+- 生产环境必须修改：
+  - `BLOG_ADMIN_PASSWORD`
+  - `BLOG_ADMIN_PATH`
+
+## Release
+
+首个版本说明见 [docs/releases/v1.0.0.md](/Users/mac/.gemini/antigravity/playground/blog/docs/releases/v1.0.0.md)。

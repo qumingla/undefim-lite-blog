@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: undefi-lite-blog
+    container_name: undefim-lite-blog
     restart: unless-stopped
     ports:
       - "${PORT:-4321}:4321"
