@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import {defaultLicense} from './license.mjs';
 
 export const dataDir = path.resolve(process.env.DATA_DIR || './data');
 mkdirSync(dataDir, { recursive: true, mode: 0o700 });
@@ -55,7 +56,7 @@ function decode(row, published = false) {
  if (published && (!row.published_data || row.deleted_at)) return null;
  const data = JSON.parse(published ? row.published_data : row.data);
  if (published && data.visibility === 'private') return null;
- return { ...data, id: row.id, kind: row.kind, path: published ? data.path : row.path,
+ return { ...defaultLicense, ...data, id: row.id, kind: row.kind, path: published ? data.path : row.path,
    published: Boolean(row.published_data), deletedAt: row.deleted_at, updatedAt: row.updated_at };
 }
 export function documents({ published = false, deleted = false } = {}) {
@@ -73,7 +74,7 @@ export function saveDocument(input, reason = 'edit', publish = false) {
  const id = input.id || randomUUID();
  if (!validContentPath(input.path)) throw new Error('固定链接路径无效或与系统路径冲突');
  const previous = db.prepare('SELECT * FROM documents WHERE id=?').get(id);
- const { id: unused, published, deletedAt, updatedAt, ...data } = input;
+ const { id: unused, published, deletedAt, updatedAt, ...data } = {...defaultLicense,...input};
  const timestamp = new Date().toISOString();
  db.exec('BEGIN IMMEDIATE');
  try {

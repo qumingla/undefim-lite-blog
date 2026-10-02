@@ -11,4 +11,37 @@ test('Front Matter 和 ZIP 相对图片可导入，非法归档不能写入目�
 test('后台需要会话与 CSRF，公开评论不返回邮箱和私密内容',async()=>{db.prepare('INSERT INTO users VALUES (?,?)').run('test',passwordHash('test-password-long-enough'));const app=await createApp();assert.equal((await app.inject({url:'/api/documents'})).statusCode,401);const login=await app.inject({method:'POST',url:'/api/auth/login',payload:{username:'test',password:'test-password-long-enough'}});assert.equal(login.statusCode,200);const cookie=login.headers['set-cookie'].split(';')[0];const {csrf}=login.json();const noCsrf=await app.inject({method:'POST',url:'/api/documents',headers:{cookie},payload:base});assert.equal(noCsrf.statusCode,403);const invalidOrigin=await app.inject({method:'POST',url:'/api/documents',headers:{cookie,'x-csrf-token':csrf,origin:'https://evil.example'},payload:base});assert.equal(invalidOrigin.statusCode,403);const privateID=documents({deleted:true})[0].id;assert.equal((await app.inject({url:`/api/public/documents/${privateID}/comments`})).statusCode,404);db.prepare('INSERT INTO comments VALUES (?,?,?,?,?,?,?,?)').run('comment-test',d.id,null,'访客','private@example.com','公开评论','approved',new Date().toISOString());const comments=await app.inject({url:`/api/public/documents/${d.id}/comments`});assert.equal(comments.statusCode,200);assert.ok(!comments.body.includes('private@example.com'));assert.equal((await app.inject({url:'/data/blog.sqlite'})).statusCode,404);await app.close()});
 test('后台禁止缓存，前台和媒体保留各自的 CDN 缓存规则',async()=>{const originalCwd=process.cwd();const runtime=path.join(process.env.DATA_DIR,'cache-test');await fs.mkdir(path.join(runtime,'dist/admin'),{recursive:true});await fs.mkdir(path.join(runtime,'dist/site/_astro'),{recursive:true});await fs.writeFile(path.join(runtime,'dist/admin/index.html'),'<html>admin</html>');await fs.writeFile(path.join(runtime,'dist/site/index.html'),'<html>blog</html>');await fs.writeFile(path.join(runtime,'dist/site/_astro/app.hash.js'),'console.log(1)');process.chdir(runtime);const app=await createApp();try{for(const [url,cache] of [['/admin/','no-store'],['/api/documents','no-store'],['/','public, max-age=0, s-maxage=300, stale-while-revalidate=60'],['/_astro/app.hash.js','public, max-age=31536000, immutable'],[db.prepare('SELECT path FROM media LIMIT 1').get().path,'public, max-age=31536000, immutable']]){const response=await app.inject({url});assert.equal(response.headers['cache-control'],cache,url)}}finally{await app.close();process.chdir(originalCwd)}});
 test('发布失败保留当前版本，成功只发布捕获的版本并保留更新的草稿',async()=>{const oldRoot=path.join(process.env.DATA_DIR,'previous');await fs.mkdir(oldRoot,{recursive:true});await fs.symlink(oldRoot,path.join(process.env.DATA_DIR,'current'));const failedID='publish-test-failure';db.prepare('INSERT INTO jobs(id,status,created_at) VALUES (?,?,?)').run(failedID,'queued',new Date().toISOString());await buildRelease(failedID,[],async()=>{throw new Error('模拟磁盘或构建失败')});assert.equal(db.prepare('SELECT status FROM jobs WHERE id=?').get(failedID).status,'failed');assert.equal(await fs.realpath(path.join(process.env.DATA_DIR,'current')),await fs.realpath(oldRoot));const captured=document(d.id);const id='publish-test-success';db.prepare('INSERT INTO jobs(id,status,created_at) VALUES (?,?,?)').run(id,'queued',new Date().toISOString());await buildRelease(id,[{id:d.id,data:captured}],async(site)=>{await fs.mkdir(site,{recursive:true});await fs.writeFile(path.join(site,'index.html'),'new release');saveDocument({...captured,markdown:'构建期间继续写的草稿'})});assert.equal(db.prepare('SELECT status FROM jobs WHERE id=?').get(id).status,'success');assert.equal(document(d.id,true).markdown,captured.markdown);assert.equal(document(d.id).markdown,'构建期间继续写的草稿');assert.notEqual(await fs.realpath(path.join(process.env.DATA_DIR,'current')),await fs.realpath(oldRoot))});
+test('许可协议兼容旧数据，保存草稿不改公开快照，导入导出和历史恢复保留协议',async()=>{
+ const {defaultLicense}=await import('../server/license.mjs');
+ const legacy={...base,path:'/archives/license-legacy'};
+ const old=saveDocument(legacy,'test',true);
+ // Simulate migrated documents and revisions that predate the new fields.
+ db.prepare('UPDATE documents SET data=?,published_data=? WHERE id=?').run(JSON.stringify(legacy),JSON.stringify(legacy),old.id);
+ assert.equal(document(old.id).licenseName,defaultLicense.licenseName);
+ assert.equal(document(old.id,true).copyrightEnabled,true);
+ const app=await createApp();
+ try {
+  const login=await app.inject({method:'POST',url:'/api/auth/login',payload:{username:'test',password:'test-password-long-enough'}});
+  const headers={cookie:login.headers['set-cookie'].split(';')[0],'x-csrf-token':login.json().csrf};
+  const custom={...document(old.id),copyrightEnabled:false,licenseName:'保留所有权利',licenseUrl:'',licenseNote:'联系作者获取授权。'};
+  const saved=await app.inject({method:'PUT',url:`/api/documents/${old.id}`,headers,payload:custom});
+  assert.equal(saved.statusCode,200);assert.equal(saved.json().copyrightEnabled,false);
+  assert.equal(document(old.id,true).licenseName,defaultLicense.licenseName);
+  for(const licenseUrl of ['javascript:alert(1)','//evil.example','https://example.com/" onclick="alert(1)']) {
+   const rejected=await app.inject({method:'POST',url:'/api/documents',headers,payload:{...base,path:'/archives/license-unsafe',licenseUrl}});
+   assert.equal(rejected.statusCode,400);
+  }
+  const exported=await app.inject({url:'/api/export',headers});
+  const zip=await JSZip.loadAsync(exported.rawPayload);
+  const imported=importMarkdown(await zip.file(`documents/${old.id}.md`).async('string'),'restored.md');
+  assert.equal(imported.copyrightEnabled,false);assert.equal(imported.licenseUrl,'');assert.equal(imported.licenseNote,custom.licenseNote);
+  const revision=db.prepare('SELECT id FROM revisions WHERE document_id=? ORDER BY created_at DESC').get(old.id);
+  const restored=await app.inject({method:'POST',url:`/api/documents/${old.id}/revisions/${revision.id}/restore`,headers});
+  assert.equal(restored.statusCode,200);assert.equal(restored.json().licenseName,defaultLicense.licenseName);
+  assert.equal(restored.json().copyrightEnabled,true);
+  const source='---\nlicenseName: 自定义授权\nlicenseUrl: https://example.com/license\nlicenseNote: 请先联系作者。\ncopyrightEnabled: false\n---\n\n正文';
+  assert.equal(importMarkdown(source,'license.md').licenseName,'自定义授权');
+  assert.equal(importMarkdown(source,'license.md').copyrightEnabled,false);
+ } finally {await app.close()}
+});
 test.after(async()=>{db.close();await fs.rm(process.env.DATA_DIR,{recursive:true,force:true})});

@@ -7,6 +7,7 @@ import katex from 'katex';
 import matter from 'gray-matter';
 import sanitizeHtml from 'sanitize-html';
 import { codeToHtml } from 'shiki';
+import {defaultLicense} from './license.mjs';
 
 export function safeHtml(html) {
  return sanitizeHtml(html, {
@@ -37,7 +38,7 @@ export function importMarkdown(source, filename='untitled.md') {
  const values=v=>Array.isArray(v)?v.map(String):(v?[String(v)]:[]);
  const date=meta.date ? new Date(meta.date) : new Date();
  if(Number.isNaN(date.getTime())) throw new Error('文章日期无效');
- return {kind:'post',title,markdown:content,format:'markdown',path:String(meta.permalink || `/archives/${slug}`),slug,date:date.toISOString(),modifiedAt:new Date().toISOString(),categories:values(meta.categories || meta.category),tags:values(meta.tags),excerpt:String(meta.description || meta.excerpt || ''),cover:String(meta.cover || ''),pinned:Boolean(meta.pinned),allowComment:meta.comments!==false,author:String(meta.author || 'undefim')};
+ return {copyrightEnabled:meta.copyrightEnabled??defaultLicense.copyrightEnabled,licenseName:meta.licenseName??defaultLicense.licenseName,licenseUrl:meta.licenseUrl??defaultLicense.licenseUrl,licenseNote:meta.licenseNote??defaultLicense.licenseNote,kind:'post',title,markdown:content,format:'markdown',path:String(meta.permalink || `/archives/${slug}`),slug,date:date.toISOString(),modifiedAt:new Date().toISOString(),categories:values(meta.categories || meta.category),tags:values(meta.tags),excerpt:String(meta.description || meta.excerpt || ''),cover:String(meta.cover || ''),pinned:Boolean(meta.pinned),allowComment:meta.comments!==false,author:String(meta.author || 'undefim')};
 }
 export function excerptOf(d) {
  if(d.excerpt) return d.excerpt;
