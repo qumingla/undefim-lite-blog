@@ -39,7 +39,7 @@ JSON 请求使用 `Content-Type: application/json`；文件用 multipart/form-da
 | GET | `/api/documents` | 可选 `?deleted=true` | 文档数组；默认非回收站，true 只列回收站；无分页 |
 | GET | `/api/documents/:id` | ID | 完整草稿 Document |
 | POST | `/api/documents` | DocumentInput | 新草稿 Document |
-| PUT | `/api/documents/:id` | 完整 DocumentInput，可附 updatedAt | Document；不是局部 PATCH；时间戳不匹配为 409 |
+| PUT | `/api/documents/:id` | 完整 DocumentInput，可附 updatedAt | Document + unpublishJob（任务 ID 或 null）；不是局部 PATCH；时间戳不匹配为 409 |
 | POST | `/api/documents/:id/publish` | 无正文 | `{job}`；只接受公开且不在回收站的文档 |
 | POST | `/api/documents/:id/unpublish` | 无正文 | `{job}`；成功构建后撤回 |
 | POST | `/api/documents/:id/trash` | 无正文 | `{job}`；立即标回收站并排队撤回 |
@@ -73,6 +73,8 @@ DocumentInput：
 | licenseNote | trim 后 <=1000，允许空串，默认“转载请注明出处。” |
 
 许可字段为每篇文章/页面独立设置，保存草稿后仍需发布。历史内容没有这些字段时读取默认值；旧版本恢复时也回到默认 CC BY 4.0，不沿用当前自定义许可。MD 导入和内容导出的 Front Matter 保留这四个字段。
+
+PUT 保存私密内容且仍有公开快照时自动排队取消发布，响应 `unpublishJob` 为任务 ID；否则为 null。该字段仅为响应元数据，不进入文章 JSON。须轮询任务成功才确认前台下线；失败可重试保存或取消发布，旧公开版本暂时保留。
 
 Document 追加 id、published、deletedAt、updatedAt，可能保留迁移元数据。PUT 应发送完整表单值及最新 updatedAt；省略有默认值的字段会回到默认值。updatedAt 冲突校验是可选字段触发，不能省略后仍声称防止并发覆盖。
 

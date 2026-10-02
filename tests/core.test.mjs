@@ -44,4 +44,29 @@ test('许可协议兼容旧数据，保存草稿不改公开快照，导入导�
   assert.equal(importMarkdown(source,'license.md').copyrightEnabled,false);
  } finally {await app.close()}
 });
+test('保存已发布内容为私密自动撤回，失败可重试且不公开私密草稿',async()=>{
+ const old=saveDocument({...base,path:'/archives/private-switch',markdown:'原公开正文'},'test',true);
+ const unrelated=document(d.id,true);
+ const queued=[];
+ const app=await createApp({queueBuild:changes=>{const id=`private-switch-${queued.length}`;queued.push({id,changes});db.prepare('INSERT INTO jobs(id,status,created_at) VALUES (?,?,?)').run(id,'queued',new Date().toISOString());return id}});
+ try {
+  const login=await app.inject({method:'POST',url:'/api/auth/login',payload:{username:'test',password:'test-password-long-enough'}});
+  const headers={cookie:login.headers['set-cookie'].split(';')[0],'x-csrf-token':login.json().csrf};
+  const save=()=>app.inject({method:'PUT',url:`/api/documents/${old.id}`,headers,payload:{...document(old.id),visibility:'private',markdown:'私密新增正文'}});
+  const response=await save();assert.equal(response.statusCode,200);assert.equal(response.json().unpublishJob,queued[0].id);
+  assert.deepEqual(queued[0].changes,[{id:old.id,data:null}]);assert.equal(document(old.id,true).markdown,'原公开正文');
+  const previous=await fs.realpath(path.join(process.env.DATA_DIR,'current'));
+  await buildRelease(queued[0].id,queued[0].changes,async()=>{throw new Error('模拟撤回失败')});
+  assert.equal(db.prepare('SELECT status FROM jobs WHERE id=?').get(queued[0].id).status,'failed');
+  assert.equal(await fs.realpath(path.join(process.env.DATA_DIR,'current')),previous);
+  assert.equal(document(old.id,true).markdown,'原公开正文');
+  const retry=await save();assert.equal(retry.json().unpublishJob,queued[1].id);
+  await buildRelease(queued[1].id,queued[1].changes,async site=>{await fs.mkdir(site,{recursive:true});await fs.writeFile(path.join(site,'index.html'),'撤回后的站点')});
+  assert.equal(document(old.id).visibility,'private');assert.equal(document(old.id).markdown,'私密新增正文');assert.equal(document(old.id,true),null);
+  const snapshot=JSON.parse(await fs.readFile(path.join(process.env.DATA_DIR,'current/content.json'),'utf8'));
+  assert.ok(!snapshot.documents.some(x=>x.id===old.id));assert.ok(!JSON.stringify(snapshot).includes('私密新增正文'));
+  assert.deepEqual(document(d.id,true),unrelated);
+  const savedAgain=await save();assert.equal(savedAgain.json().unpublishJob,null);assert.equal(queued.length,2);
+ } finally {await app.close()}
+});
 test.after(async()=>{db.close();await fs.rm(process.env.DATA_DIR,{recursive:true,force:true})});
