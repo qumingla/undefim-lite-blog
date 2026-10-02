@@ -8,6 +8,7 @@
 | --- | --- | --- | --- | --- |
 | 首页/主题/响应式 | Site.astro、site.css、PostCard/Listing、site.ts | `src/layouts`、`components`、`styles` | 完整三栏/两栏/单栏、明暗、焦点、长内容无页面溢出 | ARCHITECTURE、CHANGELOG |
 | 文章正文/代码/公式 | server/markdown.mjs、src/lib/content.mjs、通配页面、前后台 CSS | 渲染器、清洗白名单、正文样式、后台预览 | 预览与发布一致，HTML/XSS、公式/代码/表格/图片 | DATA-MODEL、必要时 API、CHANGELOG |
+| 许可协议/版权区域 | server/license.mjs、index.mjs docSchema、db.mjs、markdown.mjs、admin Editor、Copyright.astro | 默认值、预设、每篇字段、导入导出与历史恢复 | 旧内容默认、自定义/空链接/隐藏、草稿隔离、URL 安全、多宽度 | API、DATA-MODEL、ARCHITECTURE、CHANGELOG |
 | 新增文章字段 | db.mjs、index.mjs docSchema、admin Editor、content.mjs、页面、导入导出 | 前后端 schema/默认值、历史恢复、公开快照、导入导出 | 旧数据兼容，新增/编辑/发布/版本恢复，私密隔离 | API、DATA-MODEL、CHANGELOG |
 | 后台编辑交互 | admin main.tsx/style.css、对应 API | 表单、请求封装、错误与任务反馈 | updatedAt 冲突、草稿不意外发布、手机表单 | API 如有变化、ARCHITECTURE、CHANGELOG |
 | MD/ZIP 导入 | uploads.mjs、markdown.mjs、index.mjs /import、core tests | Front Matter、资源映射、限额、批处理 | 路径穿越、重复路径、缺图、扩展名、失败残留、默认草稿 | API、DATA-MODEL、CHANGELOG |

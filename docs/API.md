@@ -67,6 +67,12 @@ DocumentInput：
 | allowComment | boolean，默认 true |
 | visibility | public/private，默认 public |
 | author | <=100，默认 undefim |
+| copyrightEnabled | boolean，默认 true；关闭隐藏整块作者/链接/许可区域 |
+| licenseName | trim 后 1–100，默认 CC BY 4.0 |
+| licenseUrl | 安全 URL 或空串，默认 https://creativecommons.org/licenses/by/4.0/；空串显示纯文本 |
+| licenseNote | trim 后 <=1000，允许空串，默认“转载请注明出处。” |
+
+许可字段为每篇文章/页面独立设置，保存草稿后仍需发布。历史内容没有这些字段时读取默认值；旧版本恢复时也回到默认 CC BY 4.0，不沿用当前自定义许可。MD 导入和内容导出的 Front Matter 保留这四个字段。
 
 Document 追加 id、published、deletedAt、updatedAt，可能保留迁移元数据。PUT 应发送完整表单值及最新 updatedAt；省略有默认值的字段会回到默认值。updatedAt 冲突校验是可选字段触发，不能省略后仍声称防止并发覆盖。
 
