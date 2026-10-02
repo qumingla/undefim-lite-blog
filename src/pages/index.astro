@@ -1,0 +1,4 @@
+---
+import Site from '../layouts/Site.astro';import Listing from '../components/Listing.astro';import {posts} from '../lib/content.mjs';
+---
+<Site><Listing items={posts.slice(0,10)} totalPages={Math.ceil(posts.length/10)}/></Site>

@@ -1,0 +1,6 @@
+---
+import PostCard from './PostCard.astro';const {items,page=1,totalPages=1,title,description,base='/page'}=Astro.props;
+---
+{title&&<section class="card listing-heading"><h1>{title}</h1>{description&&<p>{description}</p>}</section>}
+{items.length?items.map(post=><PostCard post={post}/>):<section class="card empty-state">这里还没有公开文章。</section>}
+{totalPages>1&&<nav class="pagination" aria-label="文章分页">{Array.from({length:totalPages},(_,i)=>i+1).map(n=><a href={n===1?'/':`${base}/${n}`} aria-current={page===n?'page':undefined}>{n}</a>)}{page<totalPages&&<a href={`${base}/${page+1}`}>下一页</a>}</nav>}

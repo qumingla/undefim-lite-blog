@@ -1,0 +1,6 @@
+import fs from 'node:fs/promises';import path from 'node:path';import {createHash} from 'node:crypto';import {db,dataDir,documents} from '../server/db.mjs';
+const report=JSON.parse(await fs.readFile('migration/reports/import.json','utf8'));const results=[];
+for(const local of report.missingLocalReferences){
+ try{const response=await fetch(new URL(local,'https://undefi.me'),{signal:AbortSignal.timeout(15000)});if(!response.ok){results.push({path:local,status:response.status});continue}if(Number(response.headers.get('content-length'))>40*1024*1024){results.push({path:local,status:'too-large'});await response.body.cancel();continue}const parts=[];let size=0;for await(const part of response.body){size+=part.length;if(size>40*1024*1024)throw new Error('too-large');parts.push(part)}const bytes=Buffer.concat(parts);for(const root of ['public',path.join(dataDir,'media')]){const file=path.join(root,local.slice(1));await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,bytes)}results.push({path:local,status:'recovered',size,sha256:createHash('sha256').update(bytes).digest('hex')})}catch(e){results.push({path:local,status:e.name==='TimeoutError'?'timeout':'unavailable'})}
+}
+await fs.writeFile('migration/reports/asset-recovery.json',JSON.stringify(results,null,2));console.log(JSON.stringify(results.map(({path,status})=>({path,status})),null,2));

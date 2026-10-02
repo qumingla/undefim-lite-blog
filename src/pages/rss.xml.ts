@@ -1,0 +1,3 @@
+import {posts,config,summary} from '../lib/content.mjs';
+const escape=(s:string)=>s.replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]!));
+export function GET({site}:{site:URL}) {return new Response(`<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>${escape(config.title)}</title><link>${site}</link><description>${escape(config.description)}</description><language>zh-CN</language>${posts.map((p:any)=>`<item><title>${escape(p.title)}</title><link>${new URL(p.path,site)}</link><guid>${new URL(p.path,site)}</guid><pubDate>${new Date(p.date).toUTCString()}</pubDate><description>${escape(summary(p))}</description></item>`).join('')}</channel></rss>`,{headers:{'Content-Type':'application/rss+xml; charset=utf-8'}})}

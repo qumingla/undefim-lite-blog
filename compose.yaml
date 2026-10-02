@@ -1,0 +1,28 @@
+services:
+  blog:
+    build: .
+    restart: unless-stopped
+    init: true
+    ports:
+      - "127.0.0.1:4322:4322"
+    environment:
+      SITE_URL: "${SITE_URL:-https://undefi.me}"
+      COOKIE_SECURE: "${COOKIE_SECURE:-true}"
+      TRUST_PROXY: "true"
+      TRACKING_ENABLED: "${TRACKING_ENABLED:-false}"
+      ADMIN_ORIGIN: "${ADMIN_ORIGIN:-}"
+      CLOUDFLARE_ZONE_ID: "${CLOUDFLARE_ZONE_ID:-}"
+      CLOUDFLARE_API_TOKEN: "${CLOUDFLARE_API_TOKEN:-}"
+    volumes:
+      - ./data:/app/data
+    mem_limit: 2g
+    cpus: 2
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

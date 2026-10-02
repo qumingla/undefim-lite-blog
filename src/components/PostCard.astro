@@ -1,0 +1,12 @@
+---
+import Icon from './Icon.astro';import {dateLabel,summary,taxLink} from '../lib/content.mjs';
+const {post}=Astro.props;
+---
+<article class:list={['card','post-card',{'has-cover':post.cover}]}>
+ {post.cover&&<a class="post-cover" href={post.path}><img src={post.cover} alt="" loading="lazy"/></a>}
+ <div class="post-card-content">
+ <h2>{post.pinned&&<span class="pin-badge">置顶</span>}<a href={post.path}>{post.title}</a></h2>
+ <div class="meta"><time datetime={post.date}>{dateLabel(post.date)}</time><span><Icon name="eye"/>{post.visits||0}</span><span><Icon name="comment"/>{post.commentCount||0}</span><span><Icon name="heart"/>{post.likes||0}</span>{post.categories.map(name=><a class="meta-category" href={taxLink(name)}>{name}</a>)}</div>
+ {summary(post)&&<p class="post-excerpt">{summary(post)}</p>}
+ </div>
+</article>

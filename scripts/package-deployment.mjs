@@ -1,0 +1,10 @@
+import fs from 'node:fs/promises';import path from 'node:path';import {backup,DatabaseSync} from 'node:sqlite';import {spawnSync} from 'node:child_process';import {createHash} from 'node:crypto';import {db,dataDir} from '../server/db.mjs';
+const staging=path.resolve('deploy/package');await fs.mkdir(staging,{recursive:true,mode:0o700});
+for(const file of ['package.json','package-lock.json','astro.config.mjs','tsconfig.json','Dockerfile','compose.yaml','.dockerignore','README.md'])await fs.copyFile(file,path.join(staging,file));
+for(const directory of ['src','server','scripts','admin','public','tests'])await fs.cp(directory,path.join(staging,directory),{recursive:true});
+await fs.mkdir(path.join(staging,'migration/reports'),{recursive:true});await fs.cp('migration/reports',path.join(staging,'migration/reports'),{recursive:true});
+await fs.mkdir(path.join(staging,'data'),{recursive:true,mode:0o700});const target=path.join(staging,'data/blog.sqlite');await backup(db,target);
+const clean=new DatabaseSync(target);clean.exec('DELETE FROM sessions; DELETE FROM jobs;');clean.close();
+await fs.cp(path.join(dataDir,'media'),path.join(staging,'data/media'),{recursive:true});await fs.copyFile(path.join(dataDir,'admin-access.txt'),path.join(staging,'data/admin-access.txt'));await fs.chmod(path.join(staging,'data/admin-access.txt'),0o600);
+await fs.writeFile(path.join(staging,'.env'),'SITE_URL=https://undefi.me\nCOOKIE_SECURE=false\nTRACKING_ENABLED=false\n',{mode:0o600});
+const tar=path.resolve('deploy/undefim-blog-preview.tar.gz');const result=spawnSync('tar',['-czf',tar,'--exclude=.DS_Store','--exclude=._*','-C',staging,'.'],{env:{...process.env,COPYFILE_DISABLE:'1'}});if(result.status!==0)throw new Error(result.stderr.toString());await fs.chmod(tar,0o600);const bytes=await fs.readFile(tar);console.log(JSON.stringify({file:tar,size:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')}));

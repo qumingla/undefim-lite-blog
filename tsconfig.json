@@ -1,0 +1,1 @@
+{"extends":"astro/tsconfigs/strict","compilerOptions":{"jsx":"react-jsx","allowJs":true,"checkJs":false},"exclude":["node_modules","dist","data","deploy/package"]}

@@ -1,0 +1,2 @@
+import {content,config} from '../lib/content.mjs';
+export function GET({site}:{site:URL}){const paths=['/','/archives','/categories',...content.documents.map((p:any)=>p.path),...config.categories.map((t:any)=>`/categories/${t.slug}`),...config.tags.map((t:any)=>`/tags/${t.slug}`)];return new Response(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${paths.map((p:any)=>`<url><loc>${new URL(p,site).href.replaceAll('&','&amp;')}</loc></url>`).join('')}</urlset>`,{headers:{'Content-Type':'application/xml; charset=utf-8'}})}
