@@ -1,0 +1,10 @@
+---
+import {defaultLicense} from '../../server/license.mjs';
+const {document:d}=Astro.props;
+const license={...defaultLicense,...d};
+---
+{license.copyrightEnabled&&<div class="copyright">
+ <p>作者：{d.author}</p>
+ <p>链接：<a href={new URL(d.path,Astro.site).href}>{new URL(d.path,Astro.site).href}</a></p>
+ <p>本文采用 {license.licenseUrl?<a href={license.licenseUrl} target="_blank" rel="noopener noreferrer">{license.licenseName}</a>:<span>{license.licenseName}</span>} 许可协议{license.licenseNote?`，${license.licenseNote}`:'。'}</p>
+</div>}
