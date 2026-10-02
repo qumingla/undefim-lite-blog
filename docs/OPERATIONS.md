@@ -70,7 +70,7 @@ DATA_DIR=./data-dev node scripts/import-halo.mjs /absolute/path/to/halo-backup.z
 
 | 命令/检查 | 覆盖与边界 |
 | --- | --- |
-| `npm test` | 8 个核心测试，临时数据目录：草稿/公开隔离、路径、Markdown 清洗、ZIP、鉴权/邮箱隐私、缓存、构建失败与并发草稿、许可协议兼容/导出恢复 |
+| `npm test` | 9 个核心测试，临时数据目录：草稿/公开隔离、路径、Markdown 清洗、ZIP、鉴权/邮箱隐私、缓存、构建失败与并发草稿、许可协议兼容/导出恢复、私密保存自动撤回与失败重试 |
 | `npm run check` | tsc；后端 JS 的 checkJs=false，不能代替运行测试 |
 | `DATA_DIR=./data-dev ASTRO_TELEMETRY_DISABLED=1 npm run build` | 前台和后台可构建；使用隔离内容集 |
 | `npm audit` | 依赖风险核查，记录执行时间和输出，不能永久保证无漏洞 |
