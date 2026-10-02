@@ -62,6 +62,7 @@ flowchart LR
 | `server/index.mjs` | API 注册、Zod schema、鉴权接入、响应头、静态分发与错误处理 |
 | `server/db.mjs` | 建表、默认设置、草稿与版本读写、公开内容导出、路径验证 |
 | `server/auth.mjs` | scrypt 密码哈希、会话创建、Token 哈希与有效期 |
+| `server/license.mjs`、`src/components/Copyright.astro` | 每篇内容许可默认值/常用预设与版权区域，编辑器设置随文章发布 |
 | `server/markdown.mjs` | 统一 Markdown/HTML 清洗、代码与公式、Front Matter 解析 |
 | `server/uploads.mjs` | 上传限额、ZIP 路径检查、媒体保存、相对资源引用改写 |
 | `server/publish.mjs` | 构建队列、快照、release、发布状态、旧链接页、可选 CDN 清除 |

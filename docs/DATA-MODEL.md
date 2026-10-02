@@ -39,7 +39,7 @@ data/                         DATA_DIR，可配置；不是网站公开根目录
 
 ## 文档 JSON 和状态
 
-正文始终存于 `markdown` 字段，`format=html` 时它实际是 HTML 原文。其他字段包括 kind、title、path、date、modifiedAt、categories、tags、excerpt、cover、pinned、allowComment、visibility、author。迁移来源还可能带 `source`、slug 等元数据；API 标准字段见 [API](API.md)。响应另加 id、published、deletedAt、updatedAt。
+正文始终存于 `markdown` 字段，`format=html` 时它实际是 HTML 原文。其他字段包括 kind、title、path、date、modifiedAt、categories、tags、excerpt、cover、pinned、allowComment、visibility、author、copyrightEnabled、licenseName、licenseUrl、licenseNote。迁移来源还可能带 `source`、slug 等元数据；API 标准字段见 [API](API.md)。响应另加 id、published、deletedAt、updatedAt。
 
 - `data`：编辑器的最新草稿。
 - `published_data`：最后一次成功发布捕获的内容；有值时响应 `published=true`。这个布尔值不等于“最新草稿已经发布”，也不保证当前 URL 一定可见。
@@ -61,6 +61,10 @@ data/                         DATA_DIR，可配置；不是网站公开根目录
 
 文章分类标签存名称数组，设置项带稳定 ID/name/slug。改名通过设置 API 按 ID 同步正文模型，历史 revisions 不重写。删除分类设置不等于删除所有文章内引用；修改 slug 也不会自动创建分类路径重定向。保存文章时缺失的分类/标签会自动补入设置。
 
+## 许可协议与兼容
+
+编辑页“文章信息”下的“许可协议”支持常用协议、自定义名称/链接/转载说明及版权区域开关。默认值与常用预设在 `server/license.mjs`，前台显示在 `src/components/Copyright.astro`。旧 JSON 无字段时按原 CC BY 4.0 显示，不批量改写数据库；无需 SQL 表迁移。更新后这些字段进入草稿、历史版本、发布快照和内容导出。恢复没有许可字段的历史版本时使用旧默认值。保存仅影响草稿，发布成功才更新公开声明。
+
 ## 发布算法与一致性边界
 
 1. enqueueBuild 深拷贝待发布草稿，创建 queued 任务；单进程 Promise 链串行执行。
@@ -78,7 +82,7 @@ data/                         DATA_DIR，可配置；不是网站公开根目录
 
 ## Markdown 导入与媒体
 
-Front Matter 支持 title、slug/permalink、date、categories/category、tags、description/excerpt、cover、pinned、comments、author。标题依次回退首个 H1、文件名；slug 做 NFKC 规范化，默认路径 `/archives/<slug>`。日期转 ISO。每篇导入为 post；接口强制 visibility=public，默认作为草稿，设置 importAutoPublish=true 才排队发布。
+Front Matter 支持 title、slug/permalink、date、categories/category、tags、description/excerpt、cover、pinned、comments、author、copyrightEnabled、licenseName、licenseUrl、licenseNote。标题依次回退首个 H1、文件名；slug 做 NFKC 规范化，默认路径 `/archives/<slug>`。日期转 ISO。每篇导入为 post；接口强制 visibility=public，默认作为草稿，设置 importAutoPublish=true 才排队发布。
 
 ```markdown
 ---
