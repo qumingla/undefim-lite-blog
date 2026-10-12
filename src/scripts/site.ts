@@ -1,7 +1,14 @@
+import {startBackground} from './background';
 const $ = <T extends Element=HTMLElement>(selector:string)=>document.querySelector<T>(selector);
-$('.theme-toggle')?.addEventListener('click',()=>{const theme=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=theme;try{localStorage.setItem('blog-theme',theme)}catch{}});
+const themeToggle=$<HTMLButtonElement>('.theme-toggle');
+function updateThemeButton(){themeToggle?.setAttribute('aria-pressed',String(document.documentElement.dataset.theme==='dark'))}
+updateThemeButton();
+let userTheme=false;try{userTheme=['dark','light'].includes(localStorage.getItem('blog-theme')||'')}catch{}
+themeToggle?.addEventListener('click',()=>{const theme=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=theme;userTheme=true;updateThemeButton();try{localStorage.setItem('blog-theme',theme)}catch{}});
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',e=>{if(!userTheme){document.documentElement.dataset.theme=e.matches?'dark':'light';updateThemeButton()}});
+const background=$<HTMLCanvasElement>('.background-stars');if(background)startBackground(background);
 $('.mobile-menu')?.addEventListener('click',()=>{const drawer=$<HTMLElement>('.mobile-drawer')!;drawer.hidden=!drawer.hidden;$('.mobile-menu')?.setAttribute('aria-expanded',String(!drawer.hidden))});
-$('.back-top')?.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));
+$('.back-top')?.addEventListener('click',()=>window.scrollTo({top:0,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'}));
 const days=$('#site-days');if(days)days.textContent=String(Math.max(0,Math.floor((Date.now()-new Date((days as HTMLElement).dataset.start!).getTime())/86400000)));
 document.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach(b=>b.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(b.closest('.code-block')!.querySelector('code')!.textContent||'');b.textContent='已复制'}catch{b.textContent='请选中代码复制'}}));
 $('.share-button')?.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(location.href);$('.share-button')!.textContent='链接已复制'}catch{$('.share-button')!.textContent='请复制地址栏链接'}});

@@ -53,7 +53,8 @@ flowchart LR
 | `src/layouts/Site.astro` | 共同页面外壳、SEO、左右栏、导航、搜索弹层、主题初始化、可选统计脚本 |
 | `src/components/PostCard.astro`、`Listing.astro`、`Icon.astro` | 列表卡片、分页与统一 SVG 图标 |
 | `src/styles/site.css` | 前台主题变量、透明卡片、正文排版、断点和动效降级 |
-| `src/scripts/site.ts` | 主题、移动菜单、搜索、代码复制、图片放大、目录高亮、评论与计数 |
+| `src/scripts/site.ts` | 主题、移动菜单、搜索、代码复制、图片放大、目录高亮、评论与计数；启动背景动画 |
+| `src/scripts/background.ts` | 本地 Canvas 星点与短流星；尺寸变化、页面隐藏/恢复与减少动态偏好的生命周期 |
 | `src/lib/content.mjs` | 构建快照读取、公开文章排序、摘要、正文转换、友链特殊渲染与资源映射 |
 | `src/pages/` | 静态路由和索引，见下表 |
 | `admin/src/main.tsx` | API 客户端和后台状态；App、Login、Editor、JobRows、Media、Comments、Taxonomy、SiteSettings、Account |
@@ -71,7 +72,7 @@ flowchart LR
 | `scripts/recover-assets.mjs`、`archive-external-images.mjs` | 迁移资源补全，使用前逐项阅读，不能当日常更新脚本 |
 | `scripts/initialize.mjs`、`create-admin.mjs` | 容器初始化、首次管理员和首次站点构建 |
 | `scripts/backup.mjs`、`verify-backup.mjs` | 备份命令及恢复完整性验证 |
-| `tests/core.test.mjs` | 隔离数据库中的核心回归 |
+| `tests/core.test.mjs`、`tests/background.test.mjs` | 隔离数据库核心回归与背景动画生命周期回归 |
 | `scripts/verify-workflow.mjs`、`verify-preview.mjs` | 迁移阶段流程与服务验收，使用限制见运维文档 |
 | `Dockerfile`、`compose.yaml`、`deploy/nginx-oracle.conf` | 正式部署入口 |
 
@@ -91,14 +92,20 @@ flowchart LR
 
 ## 视觉与响应式契约
 
-默认最大内容宽度 1536px，桌面为左资料栏、中间正文、右公告/目录三栏；左右各 22%，中间自适应。背景图片、WenCang 字体和半透明卡片要作为整体维护。明暗主题使用 CSS 变量与 `data-theme`，用户选择保存在 localStorage。
+桌面为左资料栏、中间正文、右公告/目录三栏。最大容器宽度分档为 1152px（1200–1407px）、1344px（1408–1699px）、1600px（>=1700px），侧栏分别占内部宽度的 24%、21%、19%，两处间距各 22px，正文自适应。保留 1200px 三栏断点；参考原站 Dream 的分档留白，同时维持既有平板和手机导航。
+
+背景图片采用 center top / cover。夜间在背景层叠加 70% 黑色遮罩（等效原站 brightness(.3)），星点 Canvas 位于遮罩上方、内容下方，不拦截点击。默认夜间卡片与顶栏为 rgba(40,44,52,.6)，卡片悬停 .8；正文 #999、标题 #c0c0c0、元信息 #777。日间正文 #606266、标题 #333、元信息 #909399。后台原有 cardOpacity 仍通过 CSS 变量调节卡片透明度，不修改保存的数据。
+
+沿用本地 WenCang 字体（Dream），在 Site.astro 预加载；列表标题 22.4px/1.25，摘要 15.4px/1.5，正文 16px/1.8，手机继续使用其独立字号/行距。明暗主题使用 CSS 变量与 data-theme，用户选择保存在 localStorage；无有效手动选择时跟随系统变化。
+
+背景动态为缓慢向右上漂移、闪烁的星点与偶发短流星，最多 300 星点、2 条流星，30 FPS、DPR 上限 2。页面隐藏/pagehide 暂停，恢复后继续；prefers-reduced-motion 停止并清空背景动画，同时关闭卡片入场、头像旋转和过渡，返回顶部也改为即时滚动。
 
 | 宽度 | 前台布局 | 后台布局 |
 | --- | --- | --- |
 | >=1200px | 完整三栏，侧栏 sticky | 固定侧栏 + 工作区 |
 | 768–1199px | 左栏 250px + 正文，隐藏右栏；文章内折叠目录 | 缩窄侧栏与工作区 |
 | <=767px | 单栏，隐藏两侧栏，抽屉导航与文章内目录，评论表单单列 | 抽屉侧栏、适配手机的表单与工具栏 |
-| >=1600px / 后台 >=1700px | 调整外边距 | 调整工作区留白 |
+| >=1408px、>=1700px | 扩大三栏容器，按上述分档调整侧栏占比 | >=1700px 调整工作区留白 |
 
 验收不能只测一个浏览器窗口。至少验证 360、390、767、768、1199、1200、1440、1920px 的首页、长文章、搜索和后台编辑器；长代码/表格/公式在组件内滚动，页面不应整体横向溢出。检查键盘焦点、图片放大、目录和 `prefers-reduced-motion`。
 
