@@ -70,7 +70,7 @@ DATA_DIR=./data-dev node scripts/import-halo.mjs /absolute/path/to/halo-backup.z
 
 | 命令/检查 | 覆盖与边界 |
 | --- | --- |
-| `npm test` | 9 个核心测试，临时数据目录：草稿/公开隔离、路径、Markdown 清洗、ZIP、鉴权/邮箱隐私、缓存、构建失败与并发草稿、许可协议兼容/导出恢复、私密保存自动撤回与失败重试 |
+| `npm test` | 11 项测试（9 项核心、2 项背景动画）：临时数据目录覆盖草稿/公开隔离、路径、Markdown 清洗、ZIP、鉴权/邮箱隐私、缓存、构建失败与并发草稿、许可协议兼容/导出恢复、私密保存自动撤回与失败重试；动画暂停恢复、减少动态偏好、DPR/尺寸适配 |
 | `npm run check` | tsc；后端 JS 的 checkJs=false，不能代替运行测试 |
 | `DATA_DIR=./data-dev ASTRO_TELEMETRY_DISABLED=1 npm run build` | 前台和后台可构建；使用隔离内容集 |
 | `npm audit` | 依赖风险核查，记录执行时间和输出，不能永久保证无漏洞 |
@@ -98,6 +98,8 @@ curl --fail http://127.0.0.1:4322/api/health
 
 4. 后台、API 更新随容器生效。已有 `data/current/site/index.html` 时 initialize 不重新生成前台；模板、样式、SITE_URL、公开设置更改后，在后台执行“发布站点”（POST /api/build），等待任务 success。它不会发布未发布草稿。
 5. 验收公开域名首页、文章、搜索、RSS、手机/完整桌面、后台登录和缓存头；核对任务日志。如本次只更新文档，则无需构建/重启服务。
+
+如后台会话不可用，维护者可在备份且队列为空后停止唯一 blog 实例，使用同一 Compose 环境的临时容器调用 enqueueBuild()（不传文章变更）并等待 settledBuilds()，核对 jobs.status 为 success 后恢复 blog。停止与恢复期间会有短暂维护窗口；数据目录可能归容器 UID1000 且为 700，只读校验需通过容器或已授权 sudo，不应放宽权限。必须保证失败也恢复服务；不要在 API 正常运行时另起发布器，因为模块初始化会将已有 queued/running 标记为失败，并形成多个写实例。该方式只重建已发布快照，不需要读取管理员初始凭据。
 
 健康检查每 30 秒调用 /api/health，启动宽限 90 秒；健康不代表前台版本已更新。
 
