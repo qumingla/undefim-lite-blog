@@ -1,6 +1,6 @@
 # undefim 独立博客
 
-基于 Astro、React、Fastify 和 SQLite 的独立博客，支持 Markdown / HTML 编辑、历史版本、草稿与发布分离、媒体管理、评论和备份。需要 Node.js >=24.8。
+基于 Astro、React、Fastify 和 SQLite 的独立博客，支持 Markdown / HTML 编辑、历史版本、草稿与发布分离、媒体管理、评论和备份。使用 Node.js 24 LTS，最低 24.22.1（版本文件见 `.node-version`）。
 
 ## Docker Compose 部署
 

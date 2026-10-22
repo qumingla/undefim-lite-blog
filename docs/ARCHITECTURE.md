@@ -8,18 +8,18 @@
 
 | 层 | 技术 | 用途 |
 | --- | --- | --- |
-| 运行时 | Node.js >=24.8，ESM | 原生 `node:sqlite`、HTTP 服务和运行时静态构建 |
+| 运行时 | Node.js >=24.22.1 <25，ESM | 原生 `node:sqlite`、HTTP 服务和运行时静态构建 |
 | 前台 | Astro ^7.3.5 | `output: static`，完整 HTML、SEO、RSS、搜索索引 |
-| 后台 | React / ReactDOM ^19.1.1，Vite ^6.3.6 | `/admin/` 创作管理 SPA，lucide-react 图标 |
-| 服务 | Fastify ^5.6.0 | Cookie、多文件上传、局部限流、静态文件分发 |
+| 后台 | React / ReactDOM ^19.1.1，Vite ^6.4.5 | `/admin/` 创作管理 SPA，lucide-react 图标 |
+| 服务 | Fastify ^5.12.6 | Cookie、多文件上传、局部限流、静态文件分发 |
 | 数据 | SQLite，WAL、外键 | 文章、版本、设置、评论、会话、发布任务 |
 | 校验 | Zod ^4.1.0 | API 输入约束 |
-| 排版 | markdown-it ^14.1.0 + anchor / footnote / task-lists / texmath | 标题锚点、脚注、任务列表、公式 |
-| 公式与代码 | KaTeX ^0.16.22，Shiki ^3.12.0 | 数学排版、代码高亮和复制 |
-| 内容安全 | sanitize-html ^2.17.0 | Markdown 和历史 HTML 的统一清洗 |
-| 导入与归档 | gray-matter ^4.0.3，JSZip ^3.10.1 | Front Matter、MD/ZIP 导入、备份导出 |
+| 排版 | markdown-it ^14.3.3 + anchor / footnote / task-lists / texmath | 标题锚点、脚注、任务列表、公式 |
+| 公式与代码 | KaTeX ^0.18.2，Shiki ^3.12.0 | 公式输出经清洗的原生 MathML；代码高亮和复制 |
+| 内容安全 | sanitize-html ^2.18.1 | Markdown 和历史 HTML 的统一清洗 |
+| 导入与归档 | yaml ^2.8.1，JSZip ^3.10.1 | YAML/JSON Front Matter、MD/ZIP 导入、备份导出；元数据不执行代码 |
 | 类型检查 | TypeScript ^5.9.2 | `tsc --noEmit`；`allowJs=true`、`checkJs=false`，不代表后端 JS 已完整类型检查 |
-| 部署 | Docker Compose，node:24-bookworm-slim，Nginx 1.18 | Linux x64/ARM；TLS、反向代理 |
+| 部署 | Docker Compose，node:24.22.1-bookworm-slim，Nginx | Linux x64/ARM；TLS、反向代理；实际代理版本须在部署环境核实 |
 
 ## 访问与发布链路
 
@@ -72,7 +72,7 @@ flowchart LR
 | `scripts/recover-assets.mjs`、`archive-external-images.mjs` | 迁移资源补全，使用前逐项阅读，不能当日常更新脚本 |
 | `scripts/initialize.mjs`、`create-admin.mjs` | 容器初始化、首次管理员和首次站点构建 |
 | `scripts/backup.mjs`、`verify-backup.mjs` | 备份命令及恢复完整性验证 |
-| `tests/core.test.mjs`、`tests/background.test.mjs` | 隔离数据库核心回归与背景动画生命周期回归 |
+| `tests/core.test.mjs`、`tests/background.test.mjs`、`tests/markdown-security.test.mjs` | 隔离数据库核心回归、背景动画生命周期、元数据安全与 Markdown/公式回归 |
 | `scripts/verify-workflow.mjs`、`verify-preview.mjs` | 迁移阶段流程与服务验收，使用限制见运维文档 |
 | `Dockerfile`、`compose.yaml`、`deploy/nginx-oracle.conf` | 正式部署入口 |
 

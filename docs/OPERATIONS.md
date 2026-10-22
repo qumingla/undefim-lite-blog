@@ -4,7 +4,7 @@
 
 ## 本地开发
 
-需要 Node >=24.8 与 npm；原生 SQLite 不依赖另装数据库服务。运行 `npm ci` 保持锁文件一致。不要在默认生产数据副本上试写入，使用独立目录：
+使用 Node 24 LTS（>=24.22.1 <25）与 npm；`.node-version` 固定当前安全基线 24.22.1，须用版本管理器或官方安装包实际切换运行时，修改文件不会升级系统 Node。原生 SQLite 不依赖另装数据库服务。运行 `npm ci` 保持锁文件一致。不要在默认生产数据副本上试写入，使用独立目录：
 
 ```sh
 npm ci
@@ -70,7 +70,7 @@ DATA_DIR=./data-dev node scripts/import-halo.mjs /absolute/path/to/halo-backup.z
 
 | 命令/检查 | 覆盖与边界 |
 | --- | --- |
-| `npm test` | 11 项测试（9 项核心、2 项背景动画）：临时数据目录覆盖草稿/公开隔离、路径、Markdown 清洗、ZIP、鉴权/邮箱隐私、缓存、构建失败与并发草稿、许可协议兼容/导出恢复、私密保存自动撤回与失败重试；动画暂停恢复、减少动态偏好、DPR/尺寸适配 |
+| `npm test` | 15 项测试（9 项核心、2 项背景动画、4 项排版安全）：临时数据目录覆盖草稿/公开隔离、路径、Markdown 清洗、ZIP、鉴权/邮箱隐私、缓存、构建失败与并发草稿、许可协议兼容/导出恢复、私密保存自动撤回与失败重试；动画生命周期；YAML/JSON 兼容、元数据不执行代码、别名限额、公式清洗、畸形 Markdown 引用在独立进程内限时完成 |
 | `npm run check` | tsc；后端 JS 的 checkJs=false，不能代替运行测试 |
 | `DATA_DIR=./data-dev ASTRO_TELEMETRY_DISABLED=1 npm run build` | 前台和后台可构建；使用隔离内容集 |
 | `npm audit` | 依赖风险核查，记录执行时间和输出，不能永久保证无漏洞 |
@@ -80,6 +80,28 @@ DATA_DIR=./data-dev node scripts/import-halo.mjs /absolute/path/to/halo-backup.z
 | `npm run backup:verify` | 创建新备份、临时恢复、integrity_check、核心表数量与媒体 SHA-256 对比，输出 data 下报告 |
 
 迁移验收报告记录的是当时结果。纯文档变更不需要运行写入流程或重部署；不把旧报告当作本次新验证。
+
+### 2026-10-22 安全核查与升级
+
+对照 10 月 21 日 [Node.js 官方安全公告](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases)与 [PHP 官方公告](https://www.php.net/archive/2026.php#2026-10-21-5)，核查当前源码、锁文件和本地运行时：
+
+| 对象 | 核查结论与修复 |
+| --- | --- |
+| PHP CVE-2026-109618 / CVE-2026-109619 | 项目无 PHP 源码/服务，Compose 与代理模板不连接 PHP-FPM，因此本项目无直接 PHP 暴露面；未检查宿主机其他服务 |
+| Node.js 24.x | 检查时本地 v24.8.0，低于官方安全版 24.22.1；更新 engines、版本文件及 Docker 基线。公告包括 Brotli 解码内存写越界、DNS/TLS/HTTP 等问题；实际可利用性取决于所用 API 和输入，不能仅凭依赖版本声称博客已遭入侵 |
+| markdown-it | 14.3.2 → 14.3.3，修复 [CVE-2026-111758](https://github.com/advisories/GHSA-gfr2-rv44-r23c) 及内联 HTML 的二次复杂度问题；预览/发布启用 HTML，需更新 |
+| sanitize-html / KaTeX | 2.18.0 → 2.18.1 / 0.16.47 → 0.18.10；修复 iframe 回退递归风险及原型污染前提下的信任绕过；继续保留 trust=false 和 HTML 清洗 |
+| Vite / http-cache-semantics | 后台 6.4.3 → 6.4.5、Astro 内嵌 8.3.2 → 8.3.5 / 4.2.0 → 4.3.0；更新开发服务器、编辑器调用与缓存补丁。正式 HTTP 服务使用 Fastify，开发服务器仍只绑定回环地址 |
+| Fastify | 5.12.5 → 5.12.7，声明最低 5.12.6；另对照 [GHSA-389g-gv7q-r4x8](https://github.com/fastify/fastify/security/advisories/GHSA-389g-gv7q-r4x8) 核实请求头 propertyNames 大小写校验绕过。项目当前未使用该 schema 条件，仍更新补丁；此次 npm audit 未列出这项，不能只依赖自动审计 |
+| gray-matter 依赖链 | 移除 gray-matter / js-yaml 3 / argparse 1 / sprintf-js，使用已有 yaml 库解析 Front Matter；限制见 [数据模型](DATA-MODEL.md)。不采用 audit 建议降级到 gray-matter 2 的方案 |
+
+当日联网 `npm audit` 从 9 项告警（3 high、5 moderate、1 low，含传递影响）降至 0；这只覆盖当时 npm 公告库，不覆盖 Node 内置组件、系统包或真实服务器。依赖构建和测试使用临时下载并经官方 SHA-256 校验的 Node 24.22.1；系统默认 Node 未修改。
+
+Dockerfile 固定 `node:24.22.1-bookworm-slim`；后续安全升级需显式更新该标签并验证。更新代码后，在已授权的目标环境按下节保留回退点，用 `sudo docker compose build --pull blog` 再执行 `sudo docker compose up -d --no-build blog`；核验 `sudo docker compose exec blog node --version`、健康接口与后台。排版依赖改变后还需重新发布静态站点，确认任务 success 并检查正文/公式。旧容器不会因源码变化自动获得运行时修复；回退保留当前数据库和新增内容，优先使用安全运行时上的兼容代码，避免恢复已知有漏洞的运行时。
+
+本次未连接正式服务器，也未部署、重启或重新发布生产静态站点；线上容器、系统 Nginx/OpenSSL 与其他宿主服务仍须在目标环境实测。
+
+另查 [Nginx 官方公告](https://nginx.org/en/security_advisories.html)：当前模板不使用 alias/rewrite 组合、AIO 或 HTTP/3，但不能据此代替运行中完整配置与发行版补丁核查。应在目标环境检查 Nginx 版本、发行版包修订及编译模块，并私下核对完整配置；不要把可能含敏感配置的 `nginx -T` 输出写入公开报告，也不要仅按上游版本号判断带安全回补的发行版包。
 
 ## 正式环境与发布步骤
 
