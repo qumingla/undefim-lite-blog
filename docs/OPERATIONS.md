@@ -99,7 +99,13 @@ DATA_DIR=./data-dev node scripts/import-halo.mjs /absolute/path/to/halo-backup.z
 
 Dockerfile 固定 `node:24.22.1-bookworm-slim`；后续安全升级需显式更新该标签并验证。更新代码后，在已授权的目标环境按下节保留回退点，用 `sudo docker compose build --pull blog` 再执行 `sudo docker compose up -d --no-build blog`；核验 `sudo docker compose exec blog node --version`、健康接口与后台。排版依赖改变后还需重新发布静态站点，确认任务 success 并检查正文/公式。旧容器不会因源码变化自动获得运行时修复；回退保留当前数据库和新增内容，优先使用安全运行时上的兼容代码，避免恢复已知有漏洞的运行时。
 
-本次未连接正式服务器，也未部署、重启或重新发布生产静态站点；线上容器、系统 Nginx/OpenSSL 与其他宿主服务仍须在目标环境实测。
+源码修复阶段未连接正式服务器。随后在用户授权下，已将合并后的修复部署到正式博客，重建 Docker 镜像并显式重新发布静态站点；实测容器 Node 24.22.1、Fastify 5.12.7、markdown-it 14.3.3、sanitize-html 2.18.1、KaTeX 0.18.10，实际容器的 npm audit 为 0。保留原有生产环境变量，源码包不包含数据库、媒体或凭据。
+
+部署前完成 SQLite 备份临时恢复和媒体 SHA-256 校验，保留旧源码/环境、Nginx 配置、镜像及停止写入后的完整 data 归档。在唯一博客实例停止期间，用同一 Compose 环境的临时容器重建已发布快照，任务 success 后恢复服务。对比部署前后核心内容表，文章、历史版本、设置、评论、媒体、用户及重定向记录一致；SQLite integrity_check 为 ok，公开快照与数据库已发布内容一致，搜索索引只含已发布文章。未执行迁移导入或发布草稿。
+
+线上容器 healthy、发布队列为空；HTTPS 首页、文章、搜索、RSS、站点地图、后台和健康接口实测通过，后台/API 保持 no-store。首页及长文章在两种主题、360/390/767/768/1199/1200/1440/1920px 共 32 个组合通过布局检查，核验桌面/手机截图、哈希资产可达且无页面脚本异常。运行配置未启用自动 CDN 清理，公开域名已实际核验；第三方缓存仍可能按既有有效期更新。主机信息、精确回退点与证据保存在被忽略的私有报告中。
+
+生产 Nginx 配置测试通过；本次博客部署不代表已完成宿主机全部系统包或其他服务的漏洞审计，不能把博客依赖审计结果扩大为整机安全结论。
 
 另查 [Nginx 官方公告](https://nginx.org/en/security_advisories.html)：当前模板不使用 alias/rewrite 组合、AIO 或 HTTP/3，但不能据此代替运行中完整配置与发行版补丁核查。应在目标环境检查 Nginx 版本、发行版包修订及编译模块，并私下核对完整配置；不要把可能含敏感配置的 `nginx -T` 输出写入公开报告，也不要仅按上游版本号判断带安全回补的发行版包。
 
