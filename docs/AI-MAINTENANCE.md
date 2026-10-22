@@ -18,6 +18,7 @@
 | 分类/标签/站点设置 | defaultSettings、cleanSettings、Taxonomy/SiteSettings、页面路由 | 稳定 ID 改名、slug、设置和生成页面 | 草稿/快照名称、历史不重写、路径冲突、保存后构建 | API、DATA-MODEL、ARCHITECTURE、CHANGELOG |
 | SQLite 结构 | db.mjs、backup/verify-backup、import-halo、所有读写调用方 | 版本迁移、数据转换与回退 | 旧库升级、幂等、完整性、备份恢复、失败回退 | DATA-MODEL、OPERATIONS、CHANGELOG |
 | 部署/证书/备份 | Dockerfile、compose、nginx-oracle、initialize、backup | 环境变量、代理、镜像、恢复步骤 | health + 实际页面、TLS、Cookie、缓存与恢复 | OPERATIONS、README、状态报告（仅实测）、CHANGELOG |
+| 依赖/运行时安全 | package.json/lock、Dockerfile、漏洞涉及的调用方、markdown-security tests | 核对官方公告、精确锁定版本、元数据解析与运行时基线 | npm audit、补丁 Node 上 test/check/隔离构建；排版变化检查公式与多宽度；生产版本单独核实 | ARCHITECTURE、OPERATIONS、行为涉及的 API/DATA-MODEL、CHANGELOG |
 | 搜索/SEO/RSS | search-index/rss/sitemap、Site、site.ts、content | 索引、metadata、客户端搜索 | 只含公开内容、慢网输入、中文、规范链接与日期 | ARCHITECTURE、CHANGELOG |
 
 表中短文件名均在架构文档的模块表中给出完整目录。若一个需求横跨多行，读完相关链路后再修改。

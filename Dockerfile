@@ -1,4 +1,4 @@
-FROM node:24-bookworm-slim
+FROM node:24.22.1-bookworm-slim
 ENV NODE_ENV=production ASTRO_TELEMETRY_DISABLED=1 HOST=0.0.0.0 PORT=4322 DATA_DIR=/app/data
 WORKDIR /app
 COPY package.json package-lock.json ./
