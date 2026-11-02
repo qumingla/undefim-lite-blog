@@ -130,6 +130,57 @@ export async function executeUpdate(options,{run=command,health=()=>readHealth(o
   if(worktree){try{await git('worktree','remove','--force',worktree);await fs.rm(path.dirname(worktree),{recursive:true,force:true})}catch{}}
  }
 }
+export const checkIntervalMs=10*60*1000;
+const subjectText=value=>String(value).replace(/[\u0000-\u001f\u007f]/g,' ').trim().slice(0,100);
+class CheckBlocked extends Error{constructor(reason,message){super(message);this.reason=reason}}
+// Read-only comparison: fetches the tracked branch ref and never touches the working tree, images or data.
+export async function checkForUpdate(options,{run=command,health=()=>readHealth(options.healthUrl),now=()=>new Date().toISOString()}={}){
+ const {repoDir,dataDir,branch,repository}=options;
+ const git=(...args)=>run('git',['-c','core.hooksPath=/dev/null','-c','protocol.file.allow=never','-c','protocol.ext.allow=never',...args],{cwd:repoDir,timeout:30000});
+ const checkedAt=now();
+ let from=null,to=null;
+ try{
+  requireValue(await git('rev-parse','--show-toplevel')===repoDir,'更新目录不是仓库根目录');
+  from=await git('rev-parse','HEAD');
+  requireValue(/^[0-9a-f]{40,64}$/.test(from),'本地版本无效');
+  if(await git('branch','--show-current')!==branch)throw new CheckBlocked('branch','本地分支与跟踪分支不同，已停止自动更新。');
+  if(!matchesUpdateRemote(await git('remote','get-url','origin'),repository))throw new CheckBlocked('remote','origin 与部署端固定的仓库不匹配。');
+  if(await git('status','--porcelain','--untracked-files=all'))throw new CheckBlocked('dirty','部署目录有本地修改或未跟踪文件，已拒绝自动覆盖，请维护者先处理。');
+  try{await git('fetch','--no-tags',`https://github.com/${repository}.git`,`+refs/heads/${branch}:refs/remotes/origin/${branch}`)}
+  catch{return {state:'error',checkedAt,from,message:'暂时无法连接 GitHub，稍后会自动重试。'}}
+  to=await git('rev-parse',`refs/remotes/origin/${branch}`);
+  requireValue(/^[0-9a-f]{40,64}$/.test(to),'远端版本无效');
+  if(from===to){
+   const running=await health();
+   const marker=await fs.readFile(path.join(dataDir,'application-revision'),'utf8').catch(e=>{if(e.code==='ENOENT')return null;throw e});
+   if(!running?.ok)return {state:'error',checkedAt,from,to,message:'博客服务暂时无响应，无法确认当前运行版本。'};
+   if(running.revision===from&&marker===from)return {state:'latest',checkedAt,from,to,message:'当前已是最新版。'};
+   return {state:'available',reason:'redeploy',checkedAt,from,to,ahead:0,commits:[],message:'代码已是最新，但运行中的程序或静态版本落后，可重新部署修复。'};
+  }
+  try{await git('merge-base','--is-ancestor',from,to)}
+  catch{
+   try{await git('merge-base','--is-ancestor',to,from)}catch{throw new CheckBlocked('diverged','本地与远端分支已分叉，已停止自动更新。')}
+   throw new CheckBlocked('ahead','本地代码领先远端分支，已停止自动更新以免覆盖。');
+  }
+  if(await git('diff','--name-only',from,to,'--','Dockerfile.updater','scripts/updater-entrypoint.sh'))throw new CheckBlocked('manual-deploy','新版本修改了更新执行器运行环境，请维护者手动运行 docker compose up -d --build。');
+  const ahead=Number(await git('rev-list','--count',`${from}..${to}`));
+  const log=await git('log','--format=%h%x09%s','-n','5',`${from}..${to}`);
+  const commits=log?log.split('\n').map(line=>{const [sha,...subject]=line.split('\t');return {sha:subjectText(sha).slice(0,12),subject:subjectText(subject.join(' '))}}):[];
+  return {state:'available',reason:'new-commits',checkedAt,from,to,ahead:Number.isSafeInteger(ahead)?ahead:commits.length,commits,message:'GitHub 上有新版本。'};
+ }catch(error){
+  if(error instanceof CheckBlocked)return {state:'blocked',reason:error.reason,checkedAt,from,to,message:error.message};
+  return {state:'error',checkedAt,from,to,message:'无法完成版本检查，请在宿主机检查仓库与服务状态。'};
+ }
+}
+export async function workerCheckTick(options,state,{check=checkForUpdate,now=Date.now()}={}){
+ const directory=path.join(options.dataDir,'system-update');
+ const requested=await readUpdateFile(path.join(directory,'check-request.json'));
+ if(!requested&&state.check&&state.nextCheckAt&&Date.parse(state.nextCheckAt)>now)return false;
+ state.check=await check(options);
+ state.nextCheckAt=new Date(now+checkIntervalMs).toISOString();
+ if(requested)await fs.rm(path.join(directory,'check-request.json'),{force:true});
+ return true;
+}
 export function nextUpdateAt(config,state,now=Date.now()){
  if(config.mode!=='auto'||state.paused)return null;
  return new Date(Date.parse(state.lastCheckedAt||state.scheduleAnchorAt||state.startedAt||new Date(now).toISOString())+config.intervalHours*3600000).toISOString();
@@ -156,6 +207,7 @@ export async function workerTick(options,state,{execute=executeUpdate,now=Date.n
   if(result.status==='success'||result.status==='unchanged')state.revision=result.to;
   else if(result.rollback?.startsWith('已恢复'))state.revision=result.from;
   state.nextRunAt=nextUpdateAt(config,state);
+  state.check=null;state.nextCheckAt=null;
   await save();
  }finally{await fs.rm(path.join(directory,'request.json'),{force:true})}
  return state.job.status;
@@ -180,7 +232,7 @@ export async function runWorker(options){
  const releaseLock=await acquireWorkerLock(options.repoDir);
  try{
  const previous=await readUpdateFile(path.join(directory,'status.json'),{});
- const state={...previous,repository:options.repository,branch:options.branch,scheduleAnchorAt:previous.scheduleAnchorAt||previous.startedAt||timestamp(),startedAt:timestamp(),heartbeatAt:timestamp()};
+ const state={...previous,check:null,nextCheckAt:null,repository:options.repository,branch:options.branch,scheduleAnchorAt:previous.scheduleAnchorAt||previous.startedAt||timestamp(),startedAt:timestamp(),heartbeatAt:timestamp()};
  if(state.job?.status==='running'){
   state.job={...state.job,status:'failed',finishedAt:timestamp(),message:'执行器重启中断了任务，请先检查宿主机代码、镜像和静态版本；不会自动重放。'};
   state.paused=true;
@@ -197,7 +249,7 @@ export async function runWorker(options){
  try{
   state.revision=await command('git',['rev-parse','HEAD'],{cwd:options.repoDir});
   await beat();
-  while(!stopping){const outcome=await workerTick(options,state,{persist:beat});await beat();if(outcome==='success')break;await sleep(5000)}
+  while(!stopping){const outcome=await workerTick(options,state,{persist:beat});if(outcome==='success'){await beat();break}await workerCheckTick(options,state);await beat();await sleep(5000)}
  }finally{
   clearInterval(timer);process.off('SIGTERM',stop);process.off('SIGINT',stop);
   await writes.catch(()=>{});

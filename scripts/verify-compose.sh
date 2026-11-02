@@ -30,6 +30,15 @@ check_online() {
  compose exec -T blog node --input-type=module -e 'import {createSystemUpdate} from "./server/system-update.mjs";const s=await createSystemUpdate("/app/data").status();if(!s.online||s.config.mode!=="manual")process.exit(1);console.log("执行器在线，默认手动，来源："+s.source.repository);'
 }
 check_online
+# The read-only availability check must run inside the updater container and publish a result for the admin page.
+check_ran() {
+ for attempt in $(seq 1 45); do
+  if compose exec -T blog node --input-type=module -e 'import {createSystemUpdate} from "./server/system-update.mjs";const s=await createSystemUpdate("/app/data").status();if(!["latest","available","blocked","error"].includes(s.check?.state)||!s.check.checkedAt)process.exit(1);console.log("版本检查已运行："+s.check.state);' 2>/dev/null; then return 0; fi
+  sleep 2
+ done
+ return 1
+}
+check_ran
 test "$(docker inspect --format '{{.Config.Image}}' "$(compose ps -q blog)")" = "$BLOG_IMAGE"
 # A second process must not become a second updater, even in a new PID namespace.
 if compose exec -T --user 1000:1000 updater node --input-type=module -e 'import {acquireWorkerLock} from "./scripts/update-worker.mjs";const release=await acquireWorkerLock(process.cwd());await release();' >/dev/null 2>&1; then

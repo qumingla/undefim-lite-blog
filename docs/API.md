@@ -36,7 +36,8 @@ JSON 请求使用 `Content-Type: application/json`；文件用 multipart/form-da
 
 | 方法 | 路径 | 输入 | 返回与语义 |
 | --- | --- | --- | --- |
-| GET | `/api/system/update` | 管理员 Cookie | `{config,source,online,worker,pending}`；首次 worker/pending 为 null，config 为 `{mode:"manual",intervalHours:24}`；source 始终包含预设仓库、分支与 GitHub 链接，不依赖执行器在线 |
+| GET | `/api/system/update` | 管理员 Cookie | `{config,source,online,check,checking,worker,pending}`；首次 worker/pending/check 为 null，config 为 `{mode:"manual",intervalHours:24}`；source 始终包含预设仓库、分支与 GitHub 链接，不依赖执行器在线；check 为最近一次版本对比，checking 表示有尚未被执行器处理的重新检查请求 |
+| POST | `/api/system/update/check` | Cookie + CSRF，无正文或空对象 | **202** `{checking:true}`；只提交只读“重新检查”请求，不更新、不暂停写入；执行器离线 503，带参数 400，限 6 次/分钟 |
 | PUT | `/api/system/update/config` | Cookie + CSRF，`{mode,intervalHours}` | 原样返回已验证的配置；mode 仅 manual/auto，intervalHours 仅数字 1/6/12/24/168；未知键一律 400；可离线保存，不启动执行器 |
 | POST | `/api/system/update/run` | Cookie + CSRF，无正文或空对象 | **202** `{id,requestedAt,trigger:"manual"}`；只是原子提交请求，不代表更新完成；不接收仓库、分支、命令或凭据 |
 
@@ -44,9 +45,11 @@ JSON 请求使用 `Content-Type: application/json`；文件用 multipart/form-da
 
 `source` 为 `{repository,branch,url}`，默认 `undefim/undefim-lite-blog`、`main` 与 `https://github.com/undefim/undefim-lite-blog`；执行器曾提供部署端自定义来源时采用其来源，不再对旧 owner 做别名转换。该字段只表示来源已配置，不能替代 `online` 或授权执行更新，未启动执行器仍返回 online=false。来源无需在后台填写、不写入公开站点设置。
 
+`check`（同时位于 worker.check）为 `{state,reason?,checkedAt,from,to?,ahead?,commits?,message}`。state：`latest`（本地代码、运行程序和静态标记都等于远端分支，后台显示“已是最新版”且不显示更新按钮）、`available`（可更新：reason 为 `new-commits` 时附 ahead 与最多 5 条 `{sha,subject}`，为 `redeploy` 时代码一致但运行/静态版本落后）、`blocked`（存在更新但不能自动执行，reason 为 dirty、branch、remote、diverged、ahead 或 manual-deploy，不显示更新按钮）、`error`（GitHub 或博客服务无法确认，只给通用提示，不含 Git/Docker 原始输出）。执行器启动后立即检查，之后每 10 分钟及收到重新检查请求时只读执行 `git fetch` 对比，更新任务结束后重新检查；更新开始后 check 清空直到下一次检查。commit subject 为公开仓库文本，限 100 字符并去除控制字符，前端按纯文本显示。该字段只用于展示，真正更新前执行器仍重新校验全部条件。
+
 worker 可含 `repository,branch,revision,startedAt,heartbeatAt,lastCheckedAt,nextRunAt,paused,job`。revision 是执行器已知的部署代码版本，不能单独证明真实运行容器；任务成功需要执行器同时核对运行健康 revision 与初始化静态标记。job 为最近一条任务：`id,trigger,startedAt,finishedAt,status,message,maintenance,from,to,backup?,rollback?`；status 为 running/success/failed/unchanged；backup 仅备份文件名，不含路径/内容，rollback 为恢复结果。pending 为尚未完成请求，运行时也保留直到完成；字段未发生时可省略。没有完整历史或原始 Git/Docker 日志接口。
 
-后台每 5 秒读状态，重启断线后自动重试。失败会暂停自动更新，手动成功/unchanged 后恢复；执行器重启会将 running 标失败并暂停，不自动重放，保留已启用的维护屏障；心跳离线不会自动解锁。维护阶段除登录/退出、系统更新提交/配置以外的写方法返回 503“系统正在更新，写操作暂时暂停，请稍后重试”，GET 仍可读取；写屏障和在途请求/发布队列计数用于停止唯一写实例前排空。执行器默认由 Compose 的 updater 服务运行，API 路径/鉴权与队列格式不变。安装、权限、周期语义与回退边界见 [运维](OPERATIONS.md#后台-github-更新)。
+后台每 5 秒读状态，重启断线后自动重试。失败会暂停自动更新，手动成功/unchanged 后恢复；执行器重启会将 running 标失败并暂停，不自动重放，保留已启用的维护屏障；心跳离线不会自动解锁。维护阶段除登录/退出、系统更新提交/检查/配置以外的写方法返回 503“系统正在更新，写操作暂时暂停，请稍后重试”，GET 仍可读取；写屏障和在途请求/发布队列计数用于停止唯一写实例前排空。执行器默认由 Compose 的 updater 服务运行，API 路径/鉴权与队列格式不变。安装、权限、周期语义与回退边界见 [运维](OPERATIONS.md#后台-github-更新)。
 
 ## 文档与历史版本
 
