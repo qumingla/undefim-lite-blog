@@ -39,7 +39,7 @@ curl --fail http://127.0.0.1:4322/api/health
 
 ## 后台 GitHub 更新
 
-后台新增“系统更新”入口，可“立即检查并更新”，也可保存定时自动更新（每 1/6/12/24/168 小时检查）；默认仅手动。已自动预设开源仓库 [`undefim/undefim-lite-blog`](https://github.com/undefim/undefim-lite-blog) 的 `main` 分支，无需手动填写仓库地址；未启动执行器时也显示已配置来源。只使用规范仓库地址，部署端显式自定义来源仍生效。
+后台“系统更新”会自动对比 GitHub：启动后立即、之后每 10 分钟检查一次，也可点击“重新检查”。已是最新时显示“已是最新版”；有新版本时显示更新数量与内容并出现“立即更新”；无法自动更新（如部署目录有本地修改）时说明原因且不显示更新按钮。也可保存定时自动更新（每 1/6/12/24/168 小时）；默认仅手动。已自动预设开源仓库 [`undefim/undefim-lite-blog`](https://github.com/undefim/undefim-lite-blog) 的 `main` 分支，无需手动填写仓库地址；未启动执行器时也显示已配置来源。只使用规范仓库地址，部署端显式自定义来源仍生效。
 
 **默认由同一 Docker Compose 一次安装 blog 与 updater 两个容器**：在专用普通克隆中设置 `.env` 后执行 `APP_REVISION=$(git rev-parse HEAD) docker compose up -d --build`。无需宿主机 Node/npm 或 systemd。只有 updater 访问 Docker socket，blog 不持有 Docker 控制权限；执行器离线时按钮禁用。已有 systemd 部署须先停用旧执行器，保留原项目名、生产环境与数据，详见 [部署、权限与迁移](docs/OPERATIONS.md#后台-github-更新)。执行器基础镜像/入口变化需维护者用同一 Compose 命令更新全部服务，普通脚本更新可随博客部署后重载。
 

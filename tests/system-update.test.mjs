@@ -8,7 +8,7 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import http from 'node:http';
 import {createSystemUpdate,defaultUpdateConfig,validateUpdateConfig,writeUpdateFile,readUpdateFile,publishUpdateRequest} from '../server/system-update.mjs';
-import {workerOptions,workerTick,nextUpdateAt,executeUpdate,waitForHealth,acquireWorkerLock} from '../scripts/update-worker.mjs';
+import {workerOptions,workerTick,nextUpdateAt,executeUpdate,waitForHealth,acquireWorkerLock,checkForUpdate,workerCheckTick,checkIntervalMs} from '../scripts/update-worker.mjs';
 import {defaultUpdateSource,matchesUpdateRemote} from '../server/update-source.mjs';
 
 const root=await fs.mkdtemp(path.join(os.tmpdir(),'blog-updater-test-'));
@@ -48,6 +48,78 @@ test('只接受配置的规范 GitHub 来源，不再兼容旧地址',()=>{
  assert.equal(workerOptions({UPDATE_PROJECT:'blog'}).repository,defaultUpdateSource.repository);
  for(const suffix of ['', '.git'])assert.equal(matchesUpdateRemote(`https://github.com/undefim/undefim-lite-blog${suffix}`,defaultUpdateSource.repository),true);
  for(const remote of ['https://github.com/qumingla/undefim-lite-blog.git','http://github.com/undefim/undefim-lite-blog.git','https://github.com/other/undefim-lite-blog.git','https://github.com/undefim/undefim-lite-blog-evil.git','https://github.com.evil.example/undefim/undefim-lite-blog.git','https://token@github.com/undefim/undefim-lite-blog.git','https://github.com/undefim/undefim-lite-blog.git?token=anything','git@github.com:undefim/undefim-lite-blog.git'])assert.equal(matchesUpdateRemote(remote,defaultUpdateSource.repository),false,remote);
+});
+
+async function checkScenario({from='a'.repeat(40),to='b'.repeat(40),dirty=false,branch='main',remote='https://github.com/example/blog.git',fetchFails=false,ancestor=true,descendant=false,updaterChanged=false,count='2',log='bbbbbbb\t修复保存失败\nccccccc\t新增系统更新检查',health={ok:true,revision:from},marker=from}={}){
+ const repoDir=await fresh(),dataDir=path.join(repoDir,'data');
+ await fs.mkdir(dataDir,{recursive:true});if(marker)await fs.writeFile(path.join(dataDir,'application-revision'),marker);
+ const calls=[];
+ const run=async(program,args)=>{
+  const command=args.join(' ');calls.push(command);
+  if(command.includes('rev-parse --show-toplevel'))return repoDir;
+  if(command.includes('rev-parse HEAD'))return from;
+  if(command.includes('branch --show-current'))return branch;
+  if(command.includes('remote get-url'))return remote;
+  if(command.includes('status --porcelain'))return dirty?' M server/index.mjs':'';
+  if(command.includes(' fetch '))if(fetchFails)throw new Error('GitHub 内部网络细节 token=abc');else return '';
+  if(command.includes('rev-parse refs/remotes'))return to;
+  if(command.includes('merge-base --is-ancestor')){const forward=command.endsWith(`${from} ${to}`);if(forward&&!ancestor)throw new Error('x');if(!forward&&!descendant)throw new Error('x');return ''}
+  if(command.includes('diff --name-only'))return updaterChanged?'Dockerfile.updater':'';
+  if(command.includes('rev-list --count'))return count;
+  if(command.includes(' log '))return log;
+  return '';
+ };
+ const result=await checkForUpdate({repoDir,dataDir,repository:'example/blog',branch:'main',healthUrl:'http://blog:4322/api/health'},{run,health:async()=>health,now:()=>'2026-11-02T10:00:00.000Z'});
+ return {result,calls};
+}
+
+test('版本检查只读比较 GitHub，并区分最新、可更新与无法自动更新',async()=>{
+ const latest=await checkScenario({to:'a'.repeat(40)});
+ assert.equal(latest.result.state,'latest');assert.ok(!latest.calls.some(c=>/reset|merge --ff|checkout|worktree|docker/.test(c)));
+ const available=await checkScenario();
+ assert.equal(available.result.state,'available');assert.equal(available.result.reason,'new-commits');assert.equal(available.result.ahead,2);assert.deepEqual(available.result.commits,[{sha:'bbbbbbb',subject:'修复保存失败'},{sha:'ccccccc',subject:'新增系统更新检查'}]);
+ const redeploy=await checkScenario({to:'a'.repeat(40),health:{ok:true,revision:'unknown'}});
+ assert.equal(redeploy.result.state,'available');assert.equal(redeploy.result.reason,'redeploy');
+ const staleMarker=await checkScenario({to:'a'.repeat(40),marker:'0'.repeat(40)});assert.equal(staleMarker.result.reason,'redeploy');
+ const down=await checkScenario({to:'a'.repeat(40),health:null});assert.equal(down.result.state,'error');
+ for(const [options,reason] of [[{dirty:true},'dirty'],[{branch:'feature'},'branch'],[{remote:'https://github.com/evil/blog.git'},'remote'],[{ancestor:false},'diverged'],[{ancestor:false,descendant:true},'ahead'],[{updaterChanged:true},'manual-deploy']]){
+  const blocked=await checkScenario(options);assert.equal(blocked.result.state,'blocked',reason);assert.equal(blocked.result.reason,reason);assert.ok(!blocked.result.message.includes('token'));
+ }
+ const failed=await checkScenario({fetchFails:true});assert.equal(failed.result.state,'error');assert.doesNotMatch(JSON.stringify(failed.result),/token=abc|内部网络/);
+ const hostile=await checkScenario({log:`${'d'.repeat(7)}\t${'<img src=x onerror=1>\u0007'.repeat(20)}`});assert.ok(hostile.result.commits[0].subject.length<=100);assert.doesNotMatch(hostile.result.commits[0].subject,/\u0007/);
+});
+
+test('版本检查每 10 分钟自动运行，手动重检立即运行，更新任务后重新检查',async()=>{
+ const dataDir=await fresh(),directory=path.join(dataDir,'system-update'),options={dataDir},state={};
+ let checks=0;const check=async()=>({state:'latest',checkedAt:`n${++checks}`});
+ assert.equal(await workerCheckTick(options,state,{check,now:at}),true);assert.equal(checks,1);assert.equal(state.check.state,'latest');
+ assert.equal(await workerCheckTick(options,state,{check,now:at+checkIntervalMs-1}),false);assert.equal(checks,1);
+ await writeUpdateFile(path.join(directory,'check-request.json'),{id:randomUUID()});
+ assert.equal(await workerCheckTick(options,state,{check,now:at+1000}),true);assert.equal(checks,2);assert.equal(await readUpdateFile(path.join(directory,'check-request.json')),null);
+ assert.equal(await workerCheckTick(options,state,{check,now:at+checkIntervalMs+2000}),true);assert.equal(checks,3);
+ await publishUpdateRequest(directory,{id:randomUUID(),trigger:'manual'});
+ await workerTick(options,state,{execute:async()=>({status:'unchanged',to:'b'.repeat(40),message:'最新'}),now:at});
+ assert.equal(state.check,null);assert.equal(state.nextCheckAt,null);
+ assert.equal(await workerCheckTick(options,state,{check,now:at}),true);assert.equal(checks,4);
+});
+
+test('检查更新接口需要登录、CSRF、同源、在线执行器且不接收参数',async()=>{
+ const data=await fresh(),systemUpdate=createSystemUpdate(data),app=await createApp({systemUpdate});
+ db.prepare('INSERT INTO users VALUES (?,?)').run('check-test',passwordHash('isolated-check-test-password'));
+ try{
+  assert.equal((await app.inject({method:'POST',url:'/api/system/update/check'})).statusCode,401);
+  const login=await app.inject({method:'POST',url:'/api/auth/login',payload:{username:'check-test',password:'isolated-check-test-password'}});
+  const headers={cookie:login.headers['set-cookie'].split(';')[0],'x-csrf-token':login.json().csrf};
+  assert.equal((await app.inject({method:'POST',url:'/api/system/update/check',headers:{cookie:headers.cookie}})).statusCode,403);
+  assert.equal((await app.inject({method:'POST',url:'/api/system/update/check',headers:{...headers,origin:'https://evil.example'}})).statusCode,403);
+  assert.equal((await app.inject({method:'POST',url:'/api/system/update/check',headers})).statusCode,503);
+  await writeUpdateFile(path.join(data,'system-update/status.json'),{...liveState,heartbeatAt:new Date().toISOString(),check:{state:'available',checkedAt:'2026-11-02T10:00:00.000Z',from:'a'.repeat(40),to:'b'.repeat(40),ahead:1,commits:[{sha:'bbbbbbb',subject:'新增检查'}]}});
+  assert.equal((await app.inject({method:'POST',url:'/api/system/update/check',headers,payload:{repository:'evil/repo'}})).statusCode,400);
+  assert.equal((await app.inject({method:'POST',url:'/api/system/update/check',headers})).statusCode,202);
+  const status=(await app.inject({url:'/api/system/update',headers})).json();assert.equal(status.checking,true);assert.equal(status.check.state,'available');assert.equal(status.check.commits[0].subject,'新增检查');
+  assert.equal((await app.inject({url:'/api/health'})).json().writes,0);
+  assert.doesNotMatch(JSON.stringify(publicExport()),/check-request|checkedAt/);
+ }finally{await app.close()}
 });
 
 test('API 更新入口鉴权、CSRF、Origin、参数与维护写屏障保持有效',async()=>{

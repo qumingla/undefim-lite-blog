@@ -72,3 +72,11 @@
 :root[data-skin=kiln] .eyebrow{color:#9f9284}
 :root[data-skin=kiln] .inline-error{color:#d99ca9}
 @media(max-width:767px){:root[data-skin=kiln] .drawer-scrim{background:#00000088}}
+:root[data-skin=kiln] .update-status{--tone:#9d9790}
+:root[data-skin=kiln] .update-status.latest{--tone:#79b59d}
+:root[data-skin=kiln] .update-status.available{--tone:#d9795c}
+:root[data-skin=kiln] .update-status.running{--tone:#d9795c}
+:root[data-skin=kiln] .update-status.blocked{--tone:#cdb282}
+:root[data-skin=kiln] .update-status.error{--tone:#d399a2}
+:root[data-skin=kiln] .update-status p{color:#cfcac4}
+:root[data-skin=kiln] .update-commits code{color:#db8267}
