@@ -82,6 +82,10 @@ data/                         DATA_DIR，可配置；不是网站公开根目录
 
 ## Markdown 导入与媒体
 
+Markdown 公式由 KaTeX 在 trust=false 下输出原生 MathML，再经相同 HTML 清洗器处理。保留明确列出的数学标签与排版属性，不允许事件、链接属性或任意 CSS/SVG；避免 HTML 公式依赖的定位样式被清洗后造成上标、分数和根号错位。块级公式保留 `.katex-display` 容器滚动，预览与静态正文使用同一渲染器；显示依赖浏览器原生 MathML 支持。
+
+Front Matter 仅接受数据格式：默认 YAML，或显式 `---yaml` / `---yml` / `---json`，均须以独立的 `---` 行结束。YAML 使用 1.1 解析，保留历史日期、布尔值、合并键、数组和许可字段；支持 BOM 与 CRLF，正文不作换行转换。元数据须为字段对象；拒绝 JavaScript/其他语言、未知 YAML 标签、未闭合块和过量别名展开（maxAliasCount=100）。移除 gray-matter 及其旧 js-yaml/argparse/sprintf-js 依赖链；已有数据库正文和历史版本不批量改写。
+
 Front Matter 支持 title、slug/permalink、date、categories/category、tags、description/excerpt、cover、pinned、comments、author、copyrightEnabled、licenseName、licenseUrl、licenseNote。标题依次回退首个 H1、文件名；slug 做 NFKC 规范化，默认路径 `/archives/<slug>`。日期转 ISO。每篇导入为 post；接口强制 visibility=public，默认作为草稿，设置 importAutoPublish=true 才排队发布。
 
 ```markdown

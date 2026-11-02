@@ -112,7 +112,7 @@ path 必须以 `/` 开始，不可为根；不含 query/hash、反斜线、控�
 | GET | `/api/comments` | 无 | 原评论字段 + path/document_title，含后台可见 email |
 | PATCH | `/api/comments/:id` | `{status,content?}` | `{ok:true}`；status approved/pending/hidden，content <=5000 |
 
-导入无更新/覆盖模式，遇到同批或已有路径（含回收站）冲突为 409。自动发布由设置控制；导入不读取 Front Matter 的私密标记。文件上限、支持格式和相对引用限制见 [数据模型](DATA-MODEL.md)。没有媒体删除接口，不能假设 DELETE `/api/media/:id` 可用。评论修改立即影响动态列表；静态摘要计数需要另行构建。
+导入无更新/覆盖模式，遇到同批或已有路径（含回收站）冲突为 409。Front Matter 仅支持 YAML/JSON 字段对象；不支持的语言/标签、未闭合分隔符、错误格式或过量 YAML 别名展开返回 400，不执行元数据代码。自动发布由设置控制；导入不读取 Front Matter 的私密标记。文件上限、支持格式和相对引用限制见 [数据模型](DATA-MODEL.md)。没有媒体删除接口，不能假设 DELETE `/api/media/:id` 可用。评论修改立即影响动态列表；静态摘要计数需要另行构建。
 
 ## 设置、构建和备份
 
