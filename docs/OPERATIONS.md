@@ -73,6 +73,7 @@ DATA_DIR=./data-dev node scripts/import-halo.mjs /absolute/path/to/halo-backup.z
 | `npm test` | 15 项测试（9 项核心、2 项背景动画、4 项排版安全）：临时数据目录覆盖草稿/公开隔离、路径、Markdown 清洗、ZIP、鉴权/邮箱隐私、缓存、构建失败与并发草稿、许可协议兼容/导出恢复、私密保存自动撤回与失败重试；动画生命周期；YAML/JSON 兼容、元数据不执行代码、别名限额、公式清洗、畸形 Markdown 引用在独立进程内限时完成 |
 | `npm run check` | tsc；后端 JS 的 checkJs=false，不能代替运行测试 |
 | `DATA_DIR=./data-dev ASTRO_TELEMETRY_DISABLED=1 npm run build` | 前台和后台可构建；使用隔离内容集 |
+| GitHub Actions CI（`.github/workflows/ci.yml`） | PR 与推送 main 时在 `.node-version` 指定的 Node 上执行 `npm ci`、`npm test`、`npm run check`，以隔离空库 `npm run build`，并构建 Docker 镜像（不推送）。main 分支保护要求两项检查通过后才能合并。不覆盖浏览器多宽度、真实数据发布和生产部署 |
 | `npm audit` | 依赖风险核查，记录执行时间和输出，不能永久保证无漏洞 |
 | 浏览器多宽度 | 按架构文档断点，包含完整桌面三栏、后台编辑、长正文、搜索与图片 |
 | `node scripts/verify-workflow.mjs` | 固定请求本机 4325，读取 data/admin-access.txt，创建/编辑/发布/回收测试文章；仅用于已搭建的隔离 QA，结束仍留回收站记录 |
