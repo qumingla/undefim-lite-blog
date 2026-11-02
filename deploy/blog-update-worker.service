@@ -1,0 +1,26 @@
+[Unit]
+Description=Blog GitHub update worker
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=blogdeploy
+Group=blogdeploy
+SupplementaryGroups=docker
+WorkingDirectory=/srv/blog
+EnvironmentFile=/etc/blog-update-worker.env
+ExecStart=/usr/bin/node /srv/blog/scripts/update-worker.mjs
+Restart=always
+RestartSec=15
+TimeoutStopSec=1800
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/blog
+
+[Install]
+WantedBy=multi-user.target

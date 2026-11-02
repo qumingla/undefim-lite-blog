@@ -40,6 +40,10 @@ flowchart LR
 
 读者页面由预生成 HTML 提供，搜索在浏览器读取静态索引；评论、访问量、喜欢调用 API。管理员登录后编辑数据库草稿，显式发布时构建新目录并切换 `data/current`。编辑器主按钮按可见性切换：公开内容“发布”，私密内容“保存”（保存草稿；已有公开版本时自动排队取消发布）；私密模式隐藏重复的“保存草稿”按钮。详见 [发布一致性与失败边界](DATA-MODEL.md)。
 
+### 后台系统更新链路
+
+管理员“系统更新” → 已有会话/CSRF/Origin 校验 → 私有 DATA_DIR/system-update 文件队列 → 宿主机唯一 Node 执行器 → 固定 GitHub 来源与分支快进检查 → 临时 Git 工作树构建候选镜像 → 维护写屏障/在途请求及发布排空 → 完整备份 → 切换代码/镜像 → initialize 按 APP_REVISION 重建已发布快照 → 校验新 revision/静态标记 → 完成。失败暂停自动检查；切换后尝试恢复旧代码/镜像/静态入口，不覆盖当前数据库。容器不持有 Git 或 Docker 控制权限；宿主机部署账号和来源分支必须可信。完整配置、安全边界和不能自动恢复的情况见 [运维](OPERATIONS.md#后台-github-更新)。
+
 ## 实现路线与保留原则
 
 已完成的路线是：解析 Halo 备份和历史增量快照 → 将文章、页面、版本、评论、分类及媒体写入自有模型 → 保留固定链接与视觉资产，构建响应式 Astro 页面 → 实现 React 创作后台和 Fastify API → 加入版本化静态发布、备份验证、缓存响应头；实际迁移验收与部署记录仅在私有环境保存。
@@ -69,11 +73,14 @@ flowchart LR
 | `server/uploads.mjs` | 上传限额、ZIP 路径检查、媒体保存、相对资源引用改写 |
 | `server/publish.mjs` | 构建队列、快照、release、发布状态、旧链接页、可选 CDN 清除 |
 | `server/backup.mjs` | 数据库在线备份、媒体和清单打 ZIP |
+| `server/system-update.mjs`、`admin/src/SystemUpdate.tsx` | 私有更新文件队列、配置/心跳/维护写屏障与后台系统更新页；独立于站点公开 settings |
+| `scripts/update-worker.mjs`、`deploy/blog-update-worker.*` | 宿主机单执行器、GitHub 快进检查、隔离构建、备份/切换/回退和 systemd 安装模板 |
 | `scripts/import-halo.mjs` | 一次性 Halo 导入，拒绝已有文章数据库 |
 | `scripts/recover-assets.mjs`、`archive-external-images.mjs` | 迁移资源补全，使用前逐项阅读，不能当日常更新脚本 |
 | `scripts/initialize.mjs`、`create-admin.mjs` | 容器初始化、首次管理员和首次站点构建 |
 | `scripts/backup.mjs`、`verify-backup.mjs` | 备份命令及恢复完整性验证 |
-| `tests/core.test.mjs`、`tests/background.test.mjs`、`tests/markdown-security.test.mjs` | 隔离数据库核心回归、背景动画生命周期、元数据安全与 Markdown/公式回归 |
+| `tests/core.test.mjs`、`tests/background.test.mjs`、`tests/markdown-security.test.mjs`、`tests/system-update.test.mjs` | 隔离数据库核心回归、背景动画生命周期、元数据/排版安全、更新编排/维护计数/初始化/主题发布回归 |
+| `scripts/verify-container.mjs`、`.github/workflows/ci.yml` | 隔离 CI 容器首次初始化/重启烟测；必须显式 CONTAINER_SMOKE_TEST=true，不用于生产数据 |
 | `scripts/verify-workflow.mjs`、`verify-preview.mjs` | 迁移阶段流程与服务验收，使用限制见运维文档 |
 | `Dockerfile`、`compose.yaml`、`deploy/nginx-oracle.conf` | 正式部署入口 |
 

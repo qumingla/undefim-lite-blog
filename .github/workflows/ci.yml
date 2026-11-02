@@ -44,5 +44,20 @@ jobs:
         with:
           context: .
           push: false
+          load: true
+          tags: undefim-blog:ci
+          build-args: APP_REVISION=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Smoke test isolated container and restart
+        run: |
+          docker volume create blog-update-ci-data
+          docker run -d --name blog-update-ci --env COOKIE_SECURE=false --volume blog-update-ci-data:/app/data undefim-blog:ci
+          docker exec -e CONTAINER_SMOKE_TEST=true -e EXPECTED_REVISION=${{ github.sha }} blog-update-ci node scripts/verify-container.mjs
+          docker restart blog-update-ci
+          docker exec -e CONTAINER_SMOKE_TEST=true -e EXPECTED_REVISION=${{ github.sha }} blog-update-ci node scripts/verify-container.mjs
+      - name: Clean isolated container data
+        if: always()
+        run: |
+          docker rm -f blog-update-ci || true
+          docker volume rm blog-update-ci-data || true

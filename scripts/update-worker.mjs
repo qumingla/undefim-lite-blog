@@ -1,0 +1,200 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import os from 'node:os';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
+import {fileURLToPath} from 'node:url';
+import {randomUUID} from 'node:crypto';
+import {defaultUpdateConfig,readUpdateFile,writeUpdateFile,publishUpdateRequest,validateUpdateConfig} from '../server/system-update.mjs';
+
+const exec=promisify(execFile);
+const timestamp=()=>new Date().toISOString();
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const requireValue=(condition,message)=>{if(!condition)throw new Error(message)};
+export async function command(program,args,{cwd,timeout=120000}={}){
+ try{const result=await exec(program,args,{cwd,timeout,maxBuffer:1024*1024,env:{...process.env,GIT_TERMINAL_PROMPT:'0',GIT_CONFIG_NOSYSTEM:'1'}});return result.stdout.trim()}
+ catch{throw new Error(`${program==='git'?'Git':'Docker'} 操作失败或超时，请在宿主机检查仓库、网络与服务状态`)}
+}
+export function workerOptions(env=process.env){
+ const repository=env.UPDATE_REPOSITORY||'qumingla/undefim-lite-blog',branch=env.UPDATE_BRANCH||'main',project=env.UPDATE_PROJECT;
+ requireValue(/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(repository)&&!repository.includes('..'),'UPDATE_REPOSITORY 必须是 GitHub owner/repo');
+ requireValue(/^[a-zA-Z0-9][a-zA-Z0-9._/-]*$/.test(branch)&&!branch.includes('..')&&!branch.includes('//')&&!branch.endsWith('/')&&!branch.endsWith('.lock'),'UPDATE_BRANCH 无效');
+ requireValue(project&&/^[a-z0-9][a-z0-9_-]*$/.test(project),'必须设置现有 Compose 项目的 UPDATE_PROJECT');
+ const repoDir=path.resolve(env.UPDATE_REPO_DIR||process.cwd()),dataDir=path.resolve(env.UPDATE_DATA_DIR||path.join(repoDir,'data'));
+ const healthUrl=env.UPDATE_HEALTH_URL||'http://127.0.0.1:4322/api/health';
+ const url=new URL(healthUrl);
+ requireValue(url.protocol==='http:'&&['127.0.0.1','[::1]','localhost'].includes(url.hostname)&&!url.username&&!url.password&&url.pathname==='/api/health','健康检查必须使用本机 /api/health');
+ return {repoDir,dataDir,repository,branch,project,healthUrl};
+}
+export async function readHealth(url){try{const response=await fetch(url,{signal:AbortSignal.timeout(3000),redirect:'error'});return response.ok?await response.json():null}catch{return null}}
+export async function waitForHealth(health,predicate,{attempts=180,delay=3000}={}){
+ for(let i=0;i<attempts;i++){const value=await health();if(value?.ok&&predicate(value))return value;await sleep(delay)}
+ throw new Error('服务或静态发布未在等待时间内就绪');
+}
+function composeContract(config,dataDir){
+ const service=config.services?.blog;
+ requireValue(service&&Object.keys(config.services).length===1,'自动更新仅支持单个 blog 写实例的 Compose 配置');
+ requireValue(service.image&&/^[a-zA-Z0-9][a-zA-Z0-9./:_-]*$/.test(service.image),'Compose 必须配置固定 blog 镜像名');
+ const mount=service.volumes?.find(v=>v.target==='/app/data');
+ requireValue(mount?.type==='bind'&&path.resolve(mount.source)===dataDir&&!mount.read_only,'UPDATE_DATA_DIR 必须匹配 blog 的 /app/data 绑定目录');
+ return {image:service.image,volumes:service.volumes,ports:service.ports,user:service.user};
+}
+export async function executeUpdate(options,{run=command,health=()=>readHealth(options.healthUrl),report=async()=>{},wait=waitForHealth}={}){
+ const {repoDir,dataDir,branch,repository,project}=options;
+ const git=(...args)=>run('git',['-c','core.hooksPath=/dev/null','-c','protocol.file.allow=never','-c','protocol.ext.allow=never',...args],{cwd:repoDir});
+ const envFile=path.join(repoDir,'.env');
+ const envArgs=await fs.access(envFile).then(()=>['--env-file',envFile]).catch(e=>{if(e.code==='ENOENT')return [];throw e});
+ const compose=(file,...args)=>run('docker',['compose','--project-name',project,...envArgs,'--project-directory',repoDir,'-f',file,...args],{cwd:repoDir,timeout:20*60*1000});
+ const liveCompose=path.join(repoDir,'compose.yaml');
+ let from,to,oldImage,contract,worktree,buildOverride,codeChanged=false,serviceTouched=false,oldCurrent,oldMarker;
+ const progress=async(message,extra={})=>report({message,...extra});
+ const clean=async()=>requireValue(!(await git('status','--porcelain','--untracked-files=all')),'部署工作区有本地修改或未跟踪文件，已拒绝覆盖；请先由维护者处理');
+ try{
+  await progress('检查部署目录、GitHub 来源和分支。');
+  requireValue(await git('rev-parse','--show-toplevel')===repoDir,'UPDATE_REPO_DIR 必须是仓库根目录');
+  await clean();
+  requireValue(await git('branch','--show-current')===branch,'本地分支与跟踪分支不同，已停止更新');
+  const remote=await git('remote','get-url','origin');
+  requireValue([`https://github.com/${repository}`,`https://github.com/${repository}.git`].includes(remote),'origin 与部署端固定的 GitHub 仓库不匹配，仅支持无内嵌凭据的 HTTPS 来源');
+  from=await git('rev-parse','HEAD');
+  requireValue(/^[0-9a-f]{40,64}$/.test(from),'本地版本无效');
+  await progress('正在检查 GitHub 分支。',{from});
+  await git('fetch','--no-tags','origin',`+refs/heads/${branch}:refs/remotes/origin/${branch}`);
+  to=await git('rev-parse',`refs/remotes/origin/${branch}`);
+  requireValue(/^[0-9a-f]{40,64}$/.test(to),'远端版本无效');
+  await progress('已获取远端版本。',{to});
+  const currentHealth=await health();
+  const marker=await fs.readFile(path.join(dataDir,'application-revision'),'utf8').catch(e=>{if(e.code==='ENOENT')return null;throw e});
+  if(from===to&&currentHealth?.ok&&currentHealth.revision===from&&marker===from)return {status:'unchanged',from,to,message:'当前运行程序与静态版本均为跟踪分支的最新版本。'};
+  try{await git('merge-base','--is-ancestor',from,to)}catch{throw new Error('本地与远端分支发生分叉或远端回退，禁止自动覆盖')}
+  contract=composeContract(JSON.parse(await compose(liveCompose,'config','--format','json')),dataDir);
+  const container=await compose(liveCompose,'ps','-q','blog');
+  requireValue(/^[0-9a-f]{12,64}$/.test(container),'未找到唯一的运行中 blog 容器，请核对 UPDATE_PROJECT');
+  const staging=await fs.mkdtemp(path.join(os.tmpdir(),'blog-update-'));
+  worktree=path.join(staging,'source');buildOverride=path.join(staging,'build.json');
+  await git('worktree','add','--detach',worktree,to);
+  const candidateConfig=JSON.parse(await compose(path.join(worktree,'compose.yaml'),'config','--format','json'));
+  const candidateContract=composeContract(candidateConfig,dataDir);
+  requireValue(JSON.stringify(candidateContract)===JSON.stringify(contract),'此次提交改变镜像名、数据挂载、端口或运行用户，必须由维护者手动部署');
+  const candidateImage=`undefim-blog-update:${to}`;
+  await writeUpdateFile(buildOverride,{services:{blog:{image:candidateImage,build:{context:worktree,args:{APP_REVISION:to}}}}});
+  await progress('正在隔离工作树构建新镜像，当前服务仍可访问。');
+  await run('docker',['compose','--project-name',project,...envArgs,'--project-directory',repoDir,'-f',path.join(worktree,'compose.yaml'),'-f',buildOverride,'build','blog'],{cwd:repoDir,timeout:20*60*1000});
+  await clean();requireValue(await git('rev-parse','HEAD')===from,'构建期间本地版本已变化，已停止更新');
+  await progress('暂停写操作，等待已有发布完成。',{maintenance:true});
+  await wait(health,value=>value.publishing===0&&value.writes===0,{attempts:120,delay:3000});
+  oldImage=await run('docker',['inspect','--format','{{.Image}}',container],{cwd:repoDir});
+  requireValue(/^sha256:[0-9a-f]{64}$/.test(oldImage),'无法保留旧镜像，已停止更新');
+  oldCurrent=await fs.readlink(path.join(dataDir,'current'));
+  try{oldMarker=await fs.readFile(path.join(dataDir,'application-revision'),'utf8')}catch(e){if(e.code!=='ENOENT')throw e}
+  await progress('正在创建更新前的完整备份。');
+  const backupOutput=await compose(liveCompose,'exec','-T','blog','node','scripts/backup.mjs');
+  const backup=path.basename(backupOutput.split('\n').at(-1)||'');
+  requireValue(/^\d{4}-\d{2}-\d{2}-[a-f0-9-]+\.zip$/.test(backup),'备份未返回有效文件名，已停止更新');
+  await fs.access(path.join(dataDir,'backups',backup));
+  await progress('备份完成，准备切换代码和镜像。',{backup});
+  await clean();requireValue(await git('rev-parse','HEAD')===from,'切换前本地版本已变化，已停止更新');
+  await git('merge','--ff-only',to);codeChanged=true;
+  serviceTouched=true;
+  await run('docker',['image','tag',candidateImage,contract.image],{cwd:repoDir});
+  await compose(liveCompose,'stop','blog');
+  await progress('正在启动新版本并重新生成已发布快照，请稍候。');
+  await compose(liveCompose,'up','-d','--no-build','--force-recreate','--no-deps','blog');
+  await wait(health,value=>value.revision===to&&value.publishing===0);
+  requireValue(await fs.readFile(path.join(dataDir,'application-revision'),'utf8')===to,'静态版本标记未完成');
+  return {status:'success',from,to,backup,message:'程序与已发布快照已更新，草稿、私密内容及历史版本保持不变。'};
+ }catch(error){
+  let rollback;
+  if(codeChanged||serviceTouched){
+   await progress('更新异常，正在尝试恢复旧代码、镜像和静态入口。');
+   try{
+    if(serviceTouched)await compose(liveCompose,'stop','blog');
+    await clean();requireValue(await git('rev-parse','HEAD')===to,'本地版本被其他操作修改，拒绝自动回退覆盖');
+    await git('reset','--hard',from);
+    await run('docker',['image','tag',oldImage,contract.image],{cwd:repoDir});
+    const link=path.join(dataDir,`current-update-${randomUUID()}`);
+    await fs.symlink(oldCurrent,link);await fs.rename(link,path.join(dataDir,'current'));
+    if(oldMarker===undefined)await fs.rm(path.join(dataDir,'application-revision'),{force:true});else await fs.writeFile(path.join(dataDir,'application-revision'),oldMarker,{mode:0o600});
+    await compose(liveCompose,'up','-d','--no-build','--force-recreate','--no-deps','blog');
+    await wait(health,value=>!oldMarker||value.revision===oldMarker);
+    rollback='已恢复旧代码、镜像与静态入口；保留当前数据库，未恢复旧备份。';
+   }catch{rollback='自动回退未完成，请立即在宿主机恢复服务；数据与更新前备份均未删除。'}
+  }
+  return {status:'failed',from,to,message:error.message,rollback,maintenance:Boolean(rollback&&!rollback.startsWith('已恢复'))};
+ }finally{
+  if(worktree){try{await git('worktree','remove','--force',worktree);await fs.rm(path.dirname(worktree),{recursive:true,force:true})}catch{}}
+ }
+}
+export function nextUpdateAt(config,state,now=Date.now()){
+ if(config.mode!=='auto'||state.paused)return null;
+ return new Date(Date.parse(state.lastCheckedAt||state.scheduleAnchorAt||state.startedAt||new Date(now).toISOString())+config.intervalHours*3600000).toISOString();
+}
+export async function workerTick(options,state,{execute=executeUpdate,now=Date.now(),persist}={}){
+ const directory=path.join(options.dataDir,'system-update');
+ const config=validateUpdateConfig(await readUpdateFile(path.join(directory,'config.json'),defaultUpdateConfig));
+ state.nextRunAt=nextUpdateAt(config,state,now);
+ let request=await readUpdateFile(path.join(directory,'request.json'));
+ if(!request&&state.nextRunAt&&Date.parse(state.nextRunAt)<=now){
+  const automatic={id:randomUUID(),trigger:'auto',requestedAt:new Date(now).toISOString()};
+  try{await publishUpdateRequest(directory,automatic);request=automatic}catch(e){if(e.statusCode!==409)throw e;request=await readUpdateFile(path.join(directory,'request.json'))}
+ }
+ if(!request)return;
+ requireValue(/^[a-f0-9-]{36}$/.test(request.id)&&['manual','auto'].includes(request.trigger),'更新请求格式无效，请由维护者检查队列');
+ const inheritedMaintenance=state.job?.maintenance===true;
+ state.job={id:request.id,trigger:request.trigger,startedAt:new Date(now).toISOString(),status:'running',message:'准备检查更新。',maintenance:inheritedMaintenance};
+ const save=persist||(()=>writeUpdateFile(path.join(directory,'status.json'),{...state,heartbeatAt:timestamp()}));
+ await save();
+ try{
+  const result=await execute(options,{report:async change=>{Object.assign(state.job,change);await save()}});
+  Object.assign(state.job,result,{finishedAt:timestamp(),maintenance:result.status==='failed'&&(inheritedMaintenance||result.maintenance===true)});
+  state.lastCheckedAt=timestamp();state.paused=result.status==='failed';
+  if(result.status==='success'||result.status==='unchanged')state.revision=result.to;
+  else if(result.rollback?.startsWith('已恢复'))state.revision=result.from;
+  state.nextRunAt=nextUpdateAt(config,state);
+  await save();
+ }finally{await fs.rm(path.join(directory,'request.json'),{force:true})}
+ return state.job.status;
+}
+export async function runWorker(options){
+ const directory=path.join(options.dataDir,'system-update');
+ await fs.mkdir(directory,{recursive:true,mode:0o700});
+ const lockFile=path.join(options.repoDir,'.git','blog-update-worker.lock');
+ // This lock lives outside the container-writable queue and is held for the worker's lifetime.
+ let lock;
+ try{lock=await fs.open(lockFile,'wx',0o600)}catch(e){
+  if(e.code!=='EEXIST')throw e;
+  const pid=Number(await fs.readFile(lockFile,'utf8'));
+  requireValue(Number.isSafeInteger(pid)&&pid>0,'执行器锁无效，请由维护者检查');
+  try{process.kill(pid,0);throw new Error('已有更新执行器正在运行')}catch(error){if(error.code!=='ESRCH')throw error}
+  await fs.unlink(lockFile);lock=await fs.open(lockFile,'wx',0o600);
+ }
+ await lock.writeFile(String(process.pid));
+ const previous=await readUpdateFile(path.join(directory,'status.json'),{});
+ const state={...previous,repository:options.repository,branch:options.branch,scheduleAnchorAt:previous.scheduleAnchorAt||previous.startedAt||timestamp(),startedAt:timestamp(),heartbeatAt:timestamp()};
+ if(state.job?.status==='running'){
+  state.job={...state.job,status:'failed',finishedAt:timestamp(),message:'执行器重启中断了任务，请先检查宿主机代码、镜像和静态版本；不会自动重放。'};
+  state.paused=true;
+  const pending=await readUpdateFile(path.join(directory,'request.json'));
+  if(pending?.id===state.job.id)await fs.rm(path.join(directory,'request.json'),{force:true});
+ }
+ const pending=await readUpdateFile(path.join(directory,'request.json'));
+ if(pending?.id===state.job?.id&&state.job?.status!=='running')await fs.rm(path.join(directory,'request.json'),{force:true});
+ let writes=Promise.resolve();
+ const beat=()=>{const snapshot=JSON.parse(JSON.stringify({...state,heartbeatAt:timestamp()}));writes=writes.then(()=>writeUpdateFile(path.join(directory,'status.json'),snapshot));return writes};
+ let stopping=false;
+ const stop=()=>{stopping=true};process.on('SIGTERM',stop);process.on('SIGINT',stop);
+ const timer=setInterval(()=>beat().catch(()=>{stopping=true}),10000);
+ try{
+  state.revision=await command('git',['rev-parse','HEAD'],{cwd:options.repoDir});
+  await beat();
+  while(!stopping){const outcome=await workerTick(options,state,{persist:beat});await beat();if(outcome==='success')break;await sleep(5000)}
+ }finally{
+  clearInterval(timer);process.off('SIGTERM',stop);process.off('SIGINT',stop);
+  await writes.catch(()=>{});
+  await writeUpdateFile(path.join(directory,'status.json'),{...state,heartbeatAt:null});
+  await lock.close();await fs.unlink(lockFile);
+ }
+}
+if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
+ try{await runWorker(workerOptions())}catch{console.error('更新执行器启动或运行失败。请检查专用部署目录、环境配置、文件权限及执行器锁；未输出原始命令日志。');process.exitCode=1}
+}

@@ -1,5 +1,7 @@
 FROM node:24.22.1-bookworm-slim
 ENV NODE_ENV=production ASTRO_TELEMETRY_DISABLED=1 HOST=0.0.0.0 PORT=4322 DATA_DIR=/app/data
+ARG APP_REVISION=unknown
+ENV APP_REVISION=$APP_REVISION
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --include=dev --no-audit --no-fund

@@ -1,13 +1,14 @@
 import fs from 'node:fs/promises';import path from 'node:path';import {spawn} from 'node:child_process';import {randomUUID} from 'node:crypto';
 import {db,dataDir,publicExport,document} from './db.mjs';
 export const releaseDir=path.join(dataDir,'releases');
-let queue=Promise.resolve();
+let queue=Promise.resolve(),pendingBuilds=0;
+export const publishingCount=()=>pendingBuilds;
 const now=()=>new Date().toISOString();
 db.prepare("UPDATE jobs SET status='failed',finished_at=?,log=log||? WHERE status IN ('queued','running')").run(now(),'\n服务重启中断，当前版本保持不变。');
 export function enqueueBuild(changes=[]) {
  const id=randomUUID();const captured=changes.map(c=>({...c,data:c.data?JSON.parse(JSON.stringify(c.data)):null}));
  db.prepare('INSERT INTO jobs(id,status,created_at) VALUES (?,?,?)').run(id,'queued',now());
- queue=queue.then(()=>buildRelease(id,captured)).catch(()=>{});return id;
+ pendingBuilds++;queue=queue.then(()=>buildRelease(id,captured)).catch(()=>{}).finally(()=>{pendingBuilds--});return id;
 }
 export async function settledBuilds(){await queue}
 const escape=s=>s.replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
