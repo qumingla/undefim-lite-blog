@@ -31,8 +31,9 @@ if compose exec -T --user 1000:1000 updater node --input-type=module -e 'import 
  echo 'Lock incorrectly allowed a second worker'; exit 1
 fi
 updater_id=$(compose ps -q updater)
-docker kill --signal KILL "$updater_id" >/dev/null
-# restart:always must recover a killed updater without deleting the lock file.
+compose exec -T --user 1000:1000 updater node -e 'const fs=require("fs");const pid=fs.readdirSync("/proc").filter(x=>/^\d+$/.test(x)).find(x=>{try{return fs.readFileSync("/proc/"+x+"/cmdline","utf8").split("\0")[1]==="scripts/update-worker.mjs"}catch{return false}});if(!pid)process.exit(1);process.kill(Number(pid),"SIGKILL")' 
+# Kill the process inside the container: Docker kill is an explicit manual stop
+# and intentionally suppresses restart policies. Recover without deleting the lock file.
 for attempt in $(seq 1 60); do
  health=$(docker inspect --format '{{.State.Health.Status}}' "$updater_id")
  restarts=$(docker inspect --format '{{.RestartCount}}' "$updater_id")
