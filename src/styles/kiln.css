@@ -56,12 +56,54 @@
 
 /* Profile with the mascot stage */
 :root[data-skin=kiln] .profile{padding:0 18px 26px}
-:root[data-skin=kiln] .profile-stage{position:relative;height:92px;margin:0 -18px 18px;background:linear-gradient(180deg,rgba(217,119,87,.11),rgba(217,119,87,0) 85%);border-bottom:1px dashed var(--line);overflow:visible}
-:root[data-skin=kiln] .profile-stage .mascot-walker{position:absolute;left:14px;bottom:0;transition-property:transform;transition-timing-function:linear}
-:root[data-skin=kiln] .kiln-fire{position:absolute;right:14px;bottom:0;overflow:visible}
-:root[data-skin=kiln] .fire-outer{fill:#d97757;transform-box:fill-box;transform-origin:50% 100%;animation:kiln-flame 1.1s steps(3) infinite}
-:root[data-skin=kiln] .fire-inner{fill:#f2c287;transform-box:fill-box;transform-origin:50% 100%;animation:kiln-flame .8s steps(2) infinite reverse}
+:root[data-skin=kiln] .profile-stage{position:relative;height:92px;margin:0 -18px 18px;overflow:hidden;background:linear-gradient(180deg,rgba(217,119,87,.11),rgba(217,119,87,0) 85%);border-bottom:1px solid var(--line)}
+/* Scenery: faint far stars and near ground marks; they scroll while the mascot walks in place (data-travel). */
+:root[data-skin=kiln] .stage-scenery{position:absolute;inset:0;pointer-events:none}
+:root[data-skin=kiln] .stage-scenery:before{content:'';position:absolute;inset:0 0 35% 0;background-image:radial-gradient(circle at 18px 12px,rgba(240,225,210,.22) 0 1px,transparent 1.5px),radial-gradient(circle at 61px 34px,rgba(240,225,210,.13) 0 1px,transparent 1.5px),radial-gradient(circle at 104px 20px,rgba(240,225,210,.18) 0 1px,transparent 1.5px);background-size:130px 60px}
+:root[data-skin=kiln] .stage-scenery:after{content:'';position:absolute;left:0;right:0;bottom:0;height:4px;background:repeating-linear-gradient(90deg,rgba(240,225,210,.13) 0 4px,transparent 4px 22px)}
+:root[data-skin=kiln] .profile-stage[data-travel] .stage-scenery:before{animation:kiln-scroll-far 13s linear infinite}
+:root[data-skin=kiln] .profile-stage[data-travel] .stage-scenery:after{animation:kiln-scroll-near .55s linear infinite}
+:root[data-skin=kiln] .profile-stage[data-travel=right] .stage-scenery:before,:root[data-skin=kiln] .profile-stage[data-travel=right] .stage-scenery:after{animation-direction:reverse}
+:root[data-skin=kiln] .profile-stage .mascot-walker{position:absolute;left:42%;bottom:0;z-index:2}
+/* Hill the mascot climbs: lit and shaded flanks with a lighter ridge. */
+:root[data-skin=kiln] .kiln-hill{position:absolute;left:10px;bottom:0;pointer-events:none;opacity:0;transform:translateX(-150px);transition:transform 1.9s cubic-bezier(.2,.7,.2,1),opacity 1.2s ease}
+:root[data-skin=kiln] .profile-stage[data-scene=mountain] .kiln-hill{opacity:1;transform:none}
+:root[data-skin=kiln] .hill-lit{fill:#43372f}
+:root[data-skin=kiln] .hill-shade{fill:#352c26}
+:root[data-skin=kiln] .hill-cap{fill:#5c4c41}
+:root[data-skin=kiln] .hill-peak{fill:#7d6a5b}
+:root[data-skin=kiln] .hill-snow{fill:#b9a898}
+:root[data-skin=kiln] .hill-pine rect{fill:#3f5a48}
+:root[data-skin=kiln] .hill-pine .pine-trunk{fill:#4a3428}
+/* Campfire: three flame frames cycle in steps, embers flicker, sparks rise and the glow breathes. */
+:root[data-skin=kiln] .kiln-campfire{position:absolute;right:12px;bottom:0;width:42px;height:48px;pointer-events:none;transition:transform 1.7s cubic-bezier(.5,0,.4,1),opacity 1.2s ease}
+:root[data-skin=kiln] .profile-stage[data-scene=mountain] .kiln-campfire{transform:translateX(170px);opacity:0}
+:root[data-skin=kiln] .kiln-fire{position:relative;display:block;overflow:visible}
+:root[data-skin=kiln] .fire-glow{position:absolute;left:50%;bottom:-8px;width:120px;height:52px;margin-left:-60px;border-radius:50%;background:radial-gradient(closest-side,rgba(246,170,96,.34),rgba(217,119,87,.13) 55%,transparent);animation:kiln-glow 2.4s ease-in-out infinite;transition:scale .6s var(--ease),filter .6s ease}
+:root[data-skin=kiln] .fire-flames{transform-box:fill-box;transform-origin:50% 100%;transition:transform .6s var(--spring)}
+:root[data-skin=kiln] .flame-frame{opacity:0;animation:kiln-flame-frame .54s steps(1) infinite}
+:root[data-skin=kiln] .flame-2{animation-delay:-.18s}
+:root[data-skin=kiln] .flame-3{animation-delay:-.36s}
+:root[data-skin=kiln] .flame-outer{fill:#d97757}
+:root[data-skin=kiln] .flame-mid{fill:#ec9a5c}
+:root[data-skin=kiln] .flame-core{fill:#f6d38a}
 :root[data-skin=kiln] .fire-log{fill:#5a4134}
+:root[data-skin=kiln] .fire-log-dark{fill:#3f2c22}
+:root[data-skin=kiln] .fire-stone{fill:#4b423c}
+:root[data-skin=kiln] .fire-ember{fill:#f2a65a;animation:kiln-ember 1.3s ease-in-out infinite}
+:root[data-skin=kiln] .fire-ember.e2{animation-duration:1.7s;animation-delay:-.6s}
+:root[data-skin=kiln] .fire-ember.e3{animation-duration:1.1s;animation-delay:-.3s}
+:root[data-skin=kiln] .spark{position:absolute;left:50%;bottom:24px;width:2px;height:2px;background:#f6c27a;opacity:0;animation:kiln-spark 2.2s linear infinite}
+:root[data-skin=kiln] .spark.s1{margin-left:-6px;animation-duration:2.1s}
+:root[data-skin=kiln] .spark.s2{margin-left:2px;animation-name:kiln-spark-alt;animation-duration:2.6s;animation-delay:.7s}
+:root[data-skin=kiln] .spark.s3{margin-left:-2px;animation-duration:1.8s;animation-delay:1.3s;background:#ec9a5c}
+:root[data-skin=kiln] .spark.s4{margin-left:5px;animation-name:kiln-spark-alt;animation-duration:2.4s;animation-delay:1.9s}
+:root[data-skin=kiln] .spark.s5,:root[data-skin=kiln] .spark.s6{display:none}
+:root[data-skin=kiln] .profile-stage[data-stoked] .fire-flames{transform:scale(1.18)}
+:root[data-skin=kiln] .profile-stage[data-stoked] .flame-frame{animation-duration:.4s}
+:root[data-skin=kiln] .profile-stage[data-stoked] .fire-glow{scale:1.3;filter:brightness(1.25)}
+:root[data-skin=kiln] .profile-stage[data-stoked] .spark.s5{display:block;margin-left:-8px;animation-duration:1.6s;animation-delay:.4s}
+:root[data-skin=kiln] .profile-stage[data-stoked] .spark.s6{display:block;margin-left:7px;animation-name:kiln-spark-alt;animation-duration:1.9s;animation-delay:1.1s;background:#ec9a5c}
 :root[data-skin=kiln] .avatar{width:76px;height:76px;margin:0 auto 12px;padding:3px;border:1.5px solid rgba(217,119,87,.45);background:none;box-shadow:none;transition:border-color .3s ease,filter .4s ease,transform .4s var(--spring)}
 :root[data-skin=kiln] .avatar:hover{transform:scale(1.05);border-color:var(--accent)}
 :root[data-skin=kiln][data-theme=dark] .avatar{filter:brightness(.92)}
@@ -75,28 +117,97 @@
 :root[data-skin=kiln] .social-links a{display:grid;place-items:center;width:38px;height:38px;border-radius:10px;border:1px solid var(--border);transition:color .2s ease,border-color .2s ease,transform .3s var(--spring)}
 :root[data-skin=kiln] .social-links a:hover{border-color:rgba(217,119,87,.45);transform:translateY(-2px)}
 
-/* Mascot */
+/* Mascot: always faces the reader. Skin and eyes use separate classes so hover never hides the face. */
 :root[data-skin=kiln] .mascot-walker{display:inline-block;position:relative;will-change:transform}
 :root[data-skin=kiln] .mascot{display:block;padding:0;border:0;background:none;line-height:0;border-radius:6px;-webkit-tap-highlight-color:transparent}
-:root[data-skin=kiln] .mascot svg{display:block;overflow:visible;transform-origin:50% 100%;animation:kiln-breathe 3.4s ease-in-out infinite}
-:root[data-skin=kiln] .mascot-body rect,:root[data-skin=kiln] .mascot-legs-a rect,:root[data-skin=kiln] .mascot-legs-b rect{fill:#d97757}
-:root[data-skin=kiln] .mascot-body .mascot-light{fill:#e8957a}
-:root[data-skin=kiln] .mascot-eyes rect{fill:#191512}
+:root[data-skin=kiln] .mascot svg{display:block;overflow:visible;transform-origin:50% 100%;animation:kiln-breathe 3.4s ease-in-out infinite;transition:filter .5s ease}
+:root[data-skin=kiln] .m-skin{fill:#d97757;transition:fill .2s ease}
+:root[data-skin=kiln] .m-light{fill:#e8957a}
+:root[data-skin=kiln] .m-eye{fill:#191512}
+:root[data-skin=kiln] .m-pole{fill:#a08a78}
+:root[data-skin=kiln] .m-cloth{fill:#f2c287}
+:root[data-skin=kiln] .mascot-blush rect{fill:#f3a58c}
 :root[data-skin=kiln] .mascot-shadow{fill:rgba(0,0,0,.35)}
+:root[data-skin=kiln] .mascot:hover .m-skin{fill:#e3876a}
 :root[data-skin=kiln] .mascot-look{transition:transform .18s ease-out}
 :root[data-skin=kiln] .mascot-eyes{transform-box:fill-box;transform-origin:center;transition:transform .07s ease}
-:root[data-skin=kiln] .is-blinking .mascot-eyes{transform:scaleY(.15)}
-:root[data-skin=kiln] .is-walking .mascot-legs-a{animation:kiln-step .36s steps(1) infinite}
-:root[data-skin=kiln] .is-walking .mascot-legs-b{animation:kiln-step .36s steps(1) infinite .18s}
-:root[data-skin=kiln] .is-walking .mascot-body{animation:kiln-step .18s steps(1) infinite}
+:root[data-skin=kiln] .mascot-body{transition:transform .3s var(--ease)}
+:root[data-skin=kiln] .mascot-arm{transition:transform .2s var(--ease)}
+:root[data-skin=kiln] .eyes-closed,:root[data-skin=kiln] .eyes-happy,:root[data-skin=kiln] .mascot-blush,:root[data-skin=kiln] .mascot-flag{display:none}
+:root[data-skin=kiln] .flag-b{opacity:0}
+:root[data-skin=kiln] .is-blinking .eyes-open{transform:scaleY(.15)}
+/* walk / climb: alternating legs and arm swing */
+:root[data-skin=kiln] [data-pose=walk] .mascot-legs-a,:root[data-skin=kiln] [data-pose=climb] .mascot-legs-a{animation:kiln-step .36s steps(1) infinite}
+:root[data-skin=kiln] [data-pose=walk] .mascot-legs-b,:root[data-skin=kiln] [data-pose=climb] .mascot-legs-b{animation:kiln-step .36s steps(1) infinite .18s}
+:root[data-skin=kiln] [data-pose=walk] .mascot-body{animation:kiln-step .18s steps(1) infinite}
+:root[data-skin=kiln] [data-pose=walk] .mascot-arm-l{animation:kiln-arm .36s steps(1) infinite}
+:root[data-skin=kiln] [data-pose=walk] .mascot-arm-r{animation:kiln-arm .36s steps(1) infinite .18s}
+:root[data-skin=kiln] [data-pose=climb] .mascot-arm-l{animation:kiln-arm-climb .28s steps(1) infinite}
+:root[data-skin=kiln] [data-pose=climb] .mascot-arm-r{animation:kiln-arm-climb .28s steps(1) infinite .14s}
+/* warm: sits by the fire, happy eyes, rubbing hands, lit from the fire side */
+:root[data-skin=kiln] [data-pose=warm] .eyes-open{display:none}
+:root[data-skin=kiln] [data-pose=warm] .eyes-happy,:root[data-skin=kiln] [data-pose=warm] .mascot-blush{display:inline}
+:root[data-skin=kiln] [data-pose=warm] .mascot-body{transform:translateY(1px)}
+:root[data-skin=kiln] [data-pose=warm] .mascot-arm-l{animation:kiln-rub .32s steps(1) infinite}
+:root[data-skin=kiln] [data-pose=warm] .mascot-arm-r{animation:kiln-rub .32s steps(1) infinite .16s}
+:root[data-skin=kiln] [data-pose=warm] svg{filter:drop-shadow(5px 0 6px rgba(246,170,96,.45))}
+/* summit: raises a waving flag */
+:root[data-skin=kiln] [data-pose=summit] .eyes-open{display:none}
+:root[data-skin=kiln] [data-pose=summit] .eyes-happy,:root[data-skin=kiln] [data-pose=summit] .mascot-blush,:root[data-skin=kiln] [data-pose=summit] .mascot-flag{display:inline}
+:root[data-skin=kiln] [data-pose=summit] .mascot-arm-r{transform:translateY(-3px)}
+:root[data-skin=kiln] [data-pose=summit] .mascot-arm-l{transform:translateY(-1px)}
+:root[data-skin=kiln] [data-pose=summit] .flag-a{animation:kiln-flag .5s steps(1) infinite}
+:root[data-skin=kiln] [data-pose=summit] .flag-b{animation:kiln-flag .5s steps(1) infinite -.25s}
+/* imagine: looks up and a thought bubble grows an idea */
+:root[data-skin=kiln] [data-pose=imagine] .mascot-look{transform:translate(1px,-1px)!important}
+:root[data-skin=kiln] [data-pose=imagine] .mascot-arm-r{transform:translateY(-1px)}
+/* doze: eyes shut, slumped, slow deep breaths with drifting z */
+:root[data-skin=kiln] [data-pose=doze] .eyes-open,:root[data-skin=kiln] [data-pose=stretch] .eyes-open{display:none}
+:root[data-skin=kiln] [data-pose=doze] .eyes-closed,:root[data-skin=kiln] [data-pose=stretch] .eyes-closed{display:inline}
+:root[data-skin=kiln] [data-pose=doze] .mascot-body{transform:translateY(1px)}
+:root[data-skin=kiln] [data-pose=doze] .mascot-look{transform:translateY(1px)!important}
+:root[data-skin=kiln] [data-pose=doze] .mascot svg{animation:kiln-doze 4.2s ease-in-out infinite}
+/* stretch / startled / gaze */
+:root[data-skin=kiln] [data-pose=stretch] .mascot-arm,:root[data-skin=kiln] [data-pose=startled] .mascot-arm{transform:translateY(-3px)}
+:root[data-skin=kiln] [data-pose=stretch] .mascot svg{animation:kiln-stretch .9s var(--ease)}
+:root[data-skin=kiln] [data-pose=startled] .eyes-open{transform:scaleY(1.35)}
+:root[data-skin=kiln] [data-pose=gaze] .mascot-look{transform:translateY(-1px)!important}
 :root[data-skin=kiln] .is-reading .mascot-look{transform:translate(1px,1px)!important}
 :root[data-skin=kiln] .is-reading .mascot svg{animation:kiln-nod .5s ease-in-out infinite}
 :root[data-skin=kiln] .mascot.is-hopping svg{animation:kiln-hop .55s var(--ease)}
-:root[data-skin=kiln] .mascot:hover .mascot-body rect:not(.mascot-light){fill:#e0805f}
+/* Thought bubble */
+/* Comic convention: the smallest circle sits just off the upper corner of the head (body edge x=19, top y=2 of the
+   22x16 grid) and the trail runs diagonally up and outward, so the cloud never covers the face. */
+:root[data-skin=kiln] .mascot-thought{position:absolute;left:88%;bottom:90%;width:48px;height:40px;display:none;pointer-events:none}
+:root[data-skin=kiln] [data-pose=imagine] .mascot-thought{display:block}
+:root[data-skin=kiln] .mascot-thought i{position:absolute;border-radius:50%;background:#f1ece4;opacity:0;transform:scale(.3);animation:kiln-pop-in .3s var(--spring) forwards}
+:root[data-skin=kiln] .mascot-thought i:nth-child(1){left:0;bottom:0;width:4px;height:4px;animation-delay:.1s}
+:root[data-skin=kiln] .mascot-thought i:nth-child(2){left:6px;bottom:4px;width:5px;height:5px;animation-delay:.4s}
+:root[data-skin=kiln] .mascot-thought i:nth-child(3){left:12px;bottom:9px;width:6px;height:6px;animation-delay:.7s}
+:root[data-skin=kiln] .mascot-thought b{position:absolute;left:16px;bottom:14px;display:grid;place-items:center;width:30px;height:24px;border-radius:9px;background:#f1ece4;box-shadow:0 6px 16px -6px rgba(0,0,0,.6);opacity:0;transform:scale(.3);transform-origin:0 100%;animation:kiln-pop-in .4s var(--spring) 1s forwards}
+:root[data-skin=kiln] .mascot-thought svg{animation:kiln-bob 1.6s ease-in-out 1.4s infinite}
+:root[data-skin=kiln] .idea{display:none}
+:root[data-skin=kiln] [data-idea=bulb] .idea-bulb,:root[data-skin=kiln] [data-idea=star] .idea-star,:root[data-skin=kiln] [data-idea=code] .idea-code,:root[data-skin=kiln] [data-idea=moon] .idea-moon{display:inline}
+:root[data-skin=kiln] .idea-bulb rect{fill:#e8a23a}
+:root[data-skin=kiln] .idea-bulb .idea-base{fill:#8c847a}
+:root[data-skin=kiln] .idea-bulb .idea-base.dark{fill:#5e5750}
+:root[data-skin=kiln] .idea-star rect{fill:#d97757}
+:root[data-skin=kiln] .idea-code rect{fill:#2a2420}
+:root[data-skin=kiln] .idea-moon rect{fill:#6b7fa8}
+/* Sleep letters */
+:root[data-skin=kiln] .mascot-zzz{position:absolute;left:62%;bottom:60%;width:30px;height:34px;display:none;pointer-events:none}
+:root[data-skin=kiln] [data-pose=doze] .mascot-zzz{display:block}
+:root[data-skin=kiln] .mascot-zzz i{position:absolute;left:0;bottom:0;font:600 9px/1 var(--mono);font-style:normal;color:var(--ember);opacity:0;animation:kiln-z 2.7s ease-out infinite}
+:root[data-skin=kiln] .mascot-zzz i:nth-child(2){font-size:11px;animation-delay:.9s}
+:root[data-skin=kiln] .mascot-zzz i:nth-child(3){font-size:13px;animation-delay:1.8s}
+/* Speech bubble; on the hill it moves to the side so the card edge never clips it */
 :root[data-skin=kiln] .mascot-bubble{position:absolute;left:50%;bottom:calc(100% + 8px);z-index:3;white-space:nowrap;font-size:12px;line-height:1;padding:7px 10px;border-radius:8px;background:#f1ece4;color:#2a2420;box-shadow:0 6px 18px -6px rgba(0,0,0,.6);opacity:0;transform:translate(-50%,6px) scale(.9);transform-origin:50% 100%;pointer-events:none;transition:opacity .2s ease,transform .3s var(--spring)}
 :root[data-skin=kiln] .mascot-bubble:after{content:'';position:absolute;left:50%;top:100%;margin-left:-4px;border:4px solid transparent;border-top-color:#f1ece4}
 :root[data-skin=kiln] .mascot-bubble.is-visible{opacity:1;transform:translate(-50%,0) scale(1)}
 :root[data-skin=kiln] .mascot-bubble:empty{display:none}
+:root[data-skin=kiln] [data-elevated] .mascot-bubble{left:calc(100% + 6px);bottom:30%;transform:translate(0,4px) scale(.9);transform-origin:0 100%}
+:root[data-skin=kiln] [data-elevated] .mascot-bubble.is-visible{transform:none}
+:root[data-skin=kiln] [data-elevated] .mascot-bubble:after{left:auto;right:100%;top:auto;bottom:6px;margin:0;border-top-color:transparent;border-right-color:#f1ece4}
 
 /* Sidebar cards */
 :root[data-skin=kiln] .notice h2,:root[data-skin=kiln] .toc h2{font:400 15px var(--serif);color:var(--title);padding:13px 16px;letter-spacing:.04em}
@@ -220,11 +331,26 @@
 @keyframes kiln-step{0%{transform:none}50%{transform:translateY(-1px)}}
 @keyframes kiln-nod{0%,100%{transform:none}50%{transform:translateY(1px)}}
 @keyframes kiln-hop{0%{transform:scale(1.08,.88)}35%{transform:translateY(-34%) scale(.95,1.06)}70%{transform:translateY(0) scale(1.06,.92)}100%{transform:none}}
-@keyframes kiln-flame{0%{transform:scale(1,1)}33%{transform:scale(.9,1.12) translateX(.5px)}66%{transform:scale(1.05,.94) translateX(-.5px)}}
+@keyframes kiln-scroll-far{from{background-position:0 0}to{background-position:130px 0}}
+@keyframes kiln-scroll-near{from{background-position:0 0}to{background-position:22px 0}}
+@keyframes kiln-flame-frame{0%{opacity:1}33.333%{opacity:0}100%{opacity:0}}
+@keyframes kiln-ember{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes kiln-glow{0%,100%{opacity:.75;transform:scale(1)}40%{opacity:1;transform:scale(1.08)}70%{opacity:.85;transform:scale(.97)}}
+@keyframes kiln-spark{0%{opacity:0;transform:translate(0,0)}10%{opacity:1}50%{transform:translate(3px,-16px)}80%{opacity:.6}100%{opacity:0;transform:translate(-2px,-32px)}}
+@keyframes kiln-spark-alt{0%{opacity:0;transform:translate(0,0)}12%{opacity:1}45%{transform:translate(-3px,-14px)}80%{opacity:.5}100%{opacity:0;transform:translate(2px,-30px)}}
+@keyframes kiln-arm{0%{transform:none}50%{transform:translateY(-1px)}}
+@keyframes kiln-arm-climb{0%{transform:translateY(-2px)}50%{transform:none}}
+@keyframes kiln-rub{0%{transform:translateY(-1px)}50%{transform:translateY(-2px)}}
+@keyframes kiln-flag{0%{opacity:1}50%{opacity:0}}
+@keyframes kiln-doze{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.06)}}
+@keyframes kiln-stretch{0%{transform:none}45%{transform:scale(.95,1.1)}100%{transform:none}}
+@keyframes kiln-pop-in{to{opacity:1;transform:scale(1)}}
+@keyframes kiln-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+@keyframes kiln-z{0%{opacity:0;transform:translate(0,0)}20%{opacity:.9}100%{opacity:0;transform:translate(14px,-24px)}}
 @keyframes kiln-pop-heart{0%{transform:scale(1)}40%{transform:scale(1.45)}100%{transform:scale(1)}}
 @keyframes kiln-look-around{0%{transform:translate(-1px,0)}25%{transform:translate(1px,0)}50%{transform:translate(0,-1px)}75%{transform:translate(1px,1px)}}
 
-:root[data-skin=kiln] .drawer-stage{height:78px;margin:-22px -22px 18px;border-radius:0}
+:root[data-skin=kiln] .drawer-stage{height:88px;margin:-22px -22px 18px;border-radius:0}
 :root[data-skin=kiln] .mobile-drawer p{font-size:13px;margin-top:16px}
 @media(hover:none){
  :root[data-skin=kiln] .post-card,:root[data-skin=kiln] .taxonomy-grid a,:root[data-skin=kiln] .pagination a{-webkit-tap-highlight-color:transparent;transition:transform .18s var(--ease),background-color .2s ease}
@@ -243,7 +369,7 @@
  /* Phones: listing pages open with a compact profile card above the posts; articles start with the text. */
  :root[data-skin=kiln] .site-grid:not(.is-document)>.left-column{display:block;position:static;margin-bottom:16px}
  :root[data-skin=kiln] .left-column .profile{display:grid;grid-template-columns:60px minmax(0,1fr);grid-template-areas:'stage stage' 'avatar name' 'avatar bio' 'avatar location' 'stats stats' 'social social';column-gap:14px;text-align:left;padding:0 16px 16px}
- :root[data-skin=kiln] .left-column .profile-stage{grid-area:stage;height:74px;margin:0 -16px 16px}
+ :root[data-skin=kiln] .left-column .profile-stage{grid-area:stage;height:88px;margin:0 -16px 16px}
  :root[data-skin=kiln] .left-column .avatar{grid-area:avatar;align-self:center;width:60px;height:60px;padding:2px;margin:0}
  :root[data-skin=kiln] .left-column .profile-name{grid-area:name;align-self:end;font-size:20px;line-height:1.25}
  :root[data-skin=kiln] .left-column .bio{grid-area:bio;margin-top:3px!important;font-size:13px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
