@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 
-const css=await fs.readFile(new URL('../src/styles/kiln.css',import.meta.url),'utf8');
+const css=await fs.readFile(new URL('../src/styles/kiln-creatures.css',import.meta.url),'utf8');
 const rules=[...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([,selector,body])=>({selector:selector.trim(),body}));
 const find=part=>rules.filter(r=>r.selector.split(',').some(s=>s.trim().endsWith(part)));
 
