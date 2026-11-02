@@ -4,12 +4,13 @@
 
 ## Docker Compose 部署
 
-仓库提供 `Dockerfile` 和 `compose.yaml`，可在支持 Docker Compose 的 Linux 服务器上运行。
+仓库提供 `Dockerfile`、`Dockerfile.updater` 和 `compose.yaml`，可在支持 Docker Compose 的 Linux 服务器上运行。
 
 ```sh
+git clone https://github.com/undefim/undefim-lite-blog.git /srv/blog
+cd /srv/blog
 cp .env.example .env
-mkdir -p data
-sudo chown 1000:1000 data
+chmod 600 .env
 ```
 
 按自己的站点填写 `.env`，HTTPS 部署示例：
@@ -24,7 +25,7 @@ TRACKING_ENABLED=false
 启动并检查服务：
 
 ```sh
-docker compose up -d --build
+APP_REVISION=$(git rev-parse HEAD) docker compose up -d --build
 docker compose ps
 docker compose logs --tail=100 blog
 curl --fail http://127.0.0.1:4322/api/health
@@ -32,9 +33,9 @@ curl --fail http://127.0.0.1:4322/api/health
 
 容器端口仅绑定宿主机 `127.0.0.1:4322`，通过自己的 Nginx 或其他反向代理提供 HTTPS。`deploy/` 中的配置需按实际域名、证书和目录调整，不应直接覆盖现有服务配置。
 
-`./data` 挂载到 `/app/data`，保存数据库、媒体、备份和静态发布版本。首次启动自动创建管理员并构建初始站点；初始凭据保存在 `data/admin-access.txt`，登录后修改密码并删除该文件。已有数据时启动会继续使用已发布版本。
+`./data` 挂载到 `/app/data`，保存数据库、媒体、备份和静态发布版本。首次启动自动创建管理员并构建初始站点；初始凭据保存在 `data/admin-access.txt`，登录后修改密码并删除该文件。已有数据时只重建已发布快照，不发布草稿。
 
-更新源码后重新执行 `docker compose up -d --build`。**前台模板或样式更新后，还需要在后台点击“发布站点”并等待成功**。整站构建不会发布尚未发布的草稿。
+更新源码后执行 `APP_REVISION=$(git rev-parse HEAD) docker compose up -d --build`，提交版本变化会自动重建已发布快照，成功后才启动 API；只改公开设置或没有设置有效 APP_REVISION 时，仍需在后台点击“发布站点”并等待成功。整站构建不会发布尚未发布的草稿。
 
 ## 后台 GitHub 更新
 

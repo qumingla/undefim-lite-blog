@@ -17,7 +17,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 git -c safe.directory="$source_repo" clone --quiet --no-hardlinks "$source_repo" "$repo"
-git -C "$repo" branch -M main
+git -C "$repo" checkout --quiet -B main
 git -C "$repo" remote set-url origin https://github.com/undefim/undefim-lite-blog.git
 printf 'services:\n  blog:\n    ports: !reset []\n' > "$temp/override.yaml"
 compose up -d --no-build

@@ -181,13 +181,13 @@ Dockerfile 固定 `node:24.22.1-bookworm-slim`；后续安全升级需显式更�
 3. 在服务器应用目录执行：
 
 ```sh
-sudo docker compose up -d --build
+APP_REVISION=$(git rev-parse HEAD) sudo -E docker compose up -d --build
 sudo docker compose ps
 sudo docker compose logs --tail=100 blog
 curl --fail http://127.0.0.1:4322/api/health
 ```
 
-4. 后台、API 更新随容器生效。已有 `data/current/site/index.html` 时 initialize 不重新生成前台；模板、样式、SITE_URL、公开设置更改后，在后台执行“发布站点”（POST /api/build），等待任务 success。它不会发布未发布草稿。
+4. 后台、API 更新随容器生效。有效 APP_REVISION 与 data/application-revision 不同或静态首页缺失时，initialize 自动重建已有已发布快照，成功后写标记再启动 API；同版本重启不重复构建。未设置有效 SHA 或仅修改 SITE_URL/公开设置时，仍需执行“发布站点”（POST /api/build）并等待 success。两种构建均不会发布未发布草稿。
 5. 验收公开域名首页、文章、搜索、RSS、手机/完整桌面、后台登录和缓存头；核对任务日志。如本次只更新文档，则无需构建/重启服务。
 
 如后台会话不可用，维护者可在备份且队列为空后停止唯一 blog 实例，使用同一 Compose 环境的临时容器调用 enqueueBuild()（不传文章变更）并等待 settledBuilds()，核对 jobs.status 为 success 后恢复 blog。停止与恢复期间会有短暂维护窗口；数据目录可能归容器 UID1000 且为 700，只读校验需通过容器或已授权 sudo，不应放宽权限。必须保证失败也恢复服务；不要在 API 正常运行时另起发布器，因为模块初始化会将已有 queued/running 标记为失败，并形成多个写实例。该方式只重建已发布快照，不需要读取管理员初始凭据。
