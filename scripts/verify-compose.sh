@@ -71,16 +71,17 @@ exec /usr/local/bin/docker-test-real "$@"
 DOCKER
 chmod 755 /usr/local/bin/git /usr/local/bin/docker
 touch /tmp/blog-qa-fail-start
+chown 1000:1000 /tmp/blog-qa-fail-start
 FIXTURE
 request() {
  compose exec -T blog node --input-type=module -e 'import {createSystemUpdate} from "./server/system-update.mjs";await createSystemUpdate("/app/data").request();'
 }
 wait_job() {
  for attempt in $(seq 1 360); do
-  result=$(compose exec -T updater node -e 'const fs=require("fs");const s=JSON.parse(fs.readFileSync(process.env.UPDATE_DATA_DIR+"/system-update/status.json"));console.log((s.job?.status||"none")+"|"+(s.job?.rollback||""))' 2>/dev/null || true)
+  result=$(compose exec -T updater node -e 'const fs=require("fs");const s=JSON.parse(fs.readFileSync(process.env.UPDATE_DATA_DIR+"/system-update/status.json"));console.log((s.job?.status||"none")+"|"+(s.job?.rollback||"")+"|"+(s.job?.message||""))' 2>/dev/null || true)
   case "$result" in
    "$1|"*)
-    if [ "$1" = failed ]; then case "$result" in 'failed|已恢复'*) ;; *) echo 'Rollback did not complete'; exit 1;; esac; fi
+    if [ "$1" = failed ]; then case "$result" in 'failed|已恢复'*) ;; *) echo "Rollback did not complete: $result"; exit 1;; esac; fi
     echo "实际 Docker 更新结果：$1"; return 0;;
   esac
   sleep 2

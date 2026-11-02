@@ -43,6 +43,9 @@ services:
     init: true
     working_dir: "${BLOG_REPO_DIR:-${PWD}}"
     environment:
+      BLOG_IMAGE: "${BLOG_IMAGE:-undefim-blog:local}"
+      UPDATER_IMAGE: "${UPDATER_IMAGE:-undefim-blog-updater:local}"
+      COMPOSE_PROJECT_NAME: "${COMPOSE_PROJECT_NAME}"
       BLOG_REPO_DIR: "${BLOG_REPO_DIR:-${PWD}}"
       UPDATE_REPO_DIR: "${BLOG_REPO_DIR:-${PWD}}"
       UPDATE_DATA_DIR: "${BLOG_REPO_DIR:-${PWD}}/data"

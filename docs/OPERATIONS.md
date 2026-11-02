@@ -104,10 +104,10 @@ APP_REVISION=$(git rev-parse HEAD) docker compose up -d --build
 | 变量 | 默认值与示例 | 生效范围与注意 |
 | --- | --- | --- |
 | DATA_DIR | 本地 ./data；容器 /app/data | 数据库、媒体、备份、release；以进程工作目录解析 |
-| BLOG_IMAGE | undefim-blog:local | Compose 固定镜像标签，不传入应用；执行器构建后提升候选镜像到此标签，改变它需手动部署 |
+| BLOG_IMAGE | undefim-blog:local | Compose 固定镜像标签，仅额外传给 updater 以保持内外 Compose 解析一致，不传给 blog；执行器构建后提升候选镜像到此标签，改变它需手动部署 |
 | APP_REVISION | Docker build arg，默认 unknown | 镜像内环境；执行器构建时传入完整提交 SHA，需重建镜像生效；initialize 据此重建已发布快照并写成功标记，不在 Compose 覆盖 |
 | BLOG_REPO_DIR | 当前 shell 的 PWD | Compose 解析的宿主机克隆绝对路径；updater 以同路径读写挂载，传为 UPDATE_REPO_DIR，其 data 为 UPDATE_DATA_DIR；修改后重建 updater，不传给 blog |
-| COMPOSE_PROJECT_NAME | `.env.example` 为 undefim-blog | Compose 项目名，自动传给 updater 的 UPDATE_PROJECT；必须使用已有项目，不得新建写实例 |
+| COMPOSE_PROJECT_NAME | `.env.example` 为 undefim-blog | Compose 项目名，自动传给 updater 的 UPDATE_PROJECT 与 COMPOSE_PROJECT_NAME；必须使用已有项目，不得新建写实例 |
 | UPDATER_IMAGE | undefim-blog-updater:local | updater 固定本地镜像标签；镜像含工具和启动入口，脚本来自专用克隆；基础环境升级运行 Compose build/up |
 | UPDATE_REPOSITORY / UPDATE_BRANCH | undefim/undefim-lite-blog / main | Compose 仅传给 updater；origin 必须精确匹配，改后重建 updater，后台不能修改 |
 | UPDATE_PROJECT | Compose 自动传入 COMPOSE_PROJECT_NAME | 执行器内部使用；不得指向新项目 |
