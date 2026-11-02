@@ -38,7 +38,7 @@ curl --fail http://127.0.0.1:4322/api/health
 
 ## 后台 GitHub 更新
 
-后台新增“系统更新”入口，可“立即检查并更新”，也可保存定时自动更新（每 1/6/12/24/168 小时检查）；默认仅手动。来源默认 `qumingla/undefim-lite-blog` 的 `main` 分支，由部署端固定。
+后台新增“系统更新”入口，可“立即检查并更新”，也可保存定时自动更新（每 1/6/12/24/168 小时检查）；默认仅手动。已自动预设开源仓库 [`undefim/undefim-lite-blog`](https://github.com/undefim/undefim-lite-blog) 的 `main` 分支，无需手动填写仓库地址；未启动执行器时也显示已配置来源。兼容改名前的 `qumingla/undefim-lite-blog` 配置，部署端显式自定义来源仍生效。
 
 **必须先在 Linux 宿主机安装更新执行器**，安装与权限要求见 [开发与运维：后台 GitHub 更新](docs/OPERATIONS.md#后台-github-更新)。博客容器不挂 Docker socket，也不直接运行 Git 或宿主机命令；执行器离线时按钮禁用，不会假装更新完成。首次上线此功能仍需手动部署代码和镜像。
 
