@@ -4,12 +4,13 @@
 
 ## Docker Compose 部署
 
-仓库提供 `Dockerfile` 和 `compose.yaml`，可在支持 Docker Compose 的 Linux 服务器上运行。
+仓库提供 `Dockerfile`、`Dockerfile.updater` 和 `compose.yaml`，可在支持 Docker Compose 的 Linux 服务器上运行。
 
 ```sh
+git clone https://github.com/undefim/undefim-lite-blog.git /srv/blog
+cd /srv/blog
 cp .env.example .env
-mkdir -p data
-sudo chown 1000:1000 data
+chmod 600 .env
 ```
 
 按自己的站点填写 `.env`，HTTPS 部署示例：
@@ -24,7 +25,7 @@ TRACKING_ENABLED=false
 启动并检查服务：
 
 ```sh
-docker compose up -d --build
+APP_REVISION=$(git rev-parse HEAD) docker compose up -d --build
 docker compose ps
 docker compose logs --tail=100 blog
 curl --fail http://127.0.0.1:4322/api/health
@@ -32,15 +33,15 @@ curl --fail http://127.0.0.1:4322/api/health
 
 容器端口仅绑定宿主机 `127.0.0.1:4322`，通过自己的 Nginx 或其他反向代理提供 HTTPS。`deploy/` 中的配置需按实际域名、证书和目录调整，不应直接覆盖现有服务配置。
 
-`./data` 挂载到 `/app/data`，保存数据库、媒体、备份和静态发布版本。首次启动自动创建管理员并构建初始站点；初始凭据保存在 `data/admin-access.txt`，登录后修改密码并删除该文件。已有数据时启动会继续使用已发布版本。
+`./data` 挂载到 `/app/data`，保存数据库、媒体、备份和静态发布版本。首次启动自动创建管理员并构建初始站点；初始凭据保存在 `data/admin-access.txt`，登录后修改密码并删除该文件。已有数据时只重建已发布快照，不发布草稿。
 
-更新源码后重新执行 `docker compose up -d --build`。**前台模板或样式更新后，还需要在后台点击“发布站点”并等待成功**。整站构建不会发布尚未发布的草稿。
+更新源码后执行 `APP_REVISION=$(git rev-parse HEAD) docker compose up -d --build`，提交版本变化会自动重建已发布快照，成功后才启动 API；只改公开设置或没有设置有效 APP_REVISION 时，仍需在后台点击“发布站点”并等待成功。整站构建不会发布尚未发布的草稿。
 
 ## 后台 GitHub 更新
 
-后台新增“系统更新”入口，可“立即检查并更新”，也可保存定时自动更新（每 1/6/12/24/168 小时检查）；默认仅手动。已自动预设开源仓库 [`undefim/undefim-lite-blog`](https://github.com/undefim/undefim-lite-blog) 的 `main` 分支，无需手动填写仓库地址；未启动执行器时也显示已配置来源。兼容改名前的 `qumingla/undefim-lite-blog` 配置，部署端显式自定义来源仍生效。
+后台新增“系统更新”入口，可“立即检查并更新”，也可保存定时自动更新（每 1/6/12/24/168 小时检查）；默认仅手动。已自动预设开源仓库 [`undefim/undefim-lite-blog`](https://github.com/undefim/undefim-lite-blog) 的 `main` 分支，无需手动填写仓库地址；未启动执行器时也显示已配置来源。只使用规范仓库地址，部署端显式自定义来源仍生效。
 
-**必须先在 Linux 宿主机安装更新执行器**，安装与权限要求见 [开发与运维：后台 GitHub 更新](docs/OPERATIONS.md#后台-github-更新)。博客容器不挂 Docker socket，也不直接运行 Git 或宿主机命令；执行器离线时按钮禁用，不会假装更新完成。首次上线此功能仍需手动部署代码和镜像。
+**默认由同一 Docker Compose 一次安装 blog 与 updater 两个容器**：在专用普通克隆中设置 `.env` 后执行 `APP_REVISION=$(git rev-parse HEAD) docker compose up -d --build`。无需宿主机 Node/npm 或 systemd。只有 updater 访问 Docker socket，blog 不持有 Docker 控制权限；执行器离线时按钮禁用。已有 systemd 部署须先停用旧执行器，保留原项目名、生产环境与数据，详见 [部署、权限与迁移](docs/OPERATIONS.md#后台-github-更新)。执行器基础镜像/入口变化需维护者用同一 Compose 命令更新全部服务，普通脚本更新可随博客部署后重载。
 
 更新先检查干净工作区与快进关系，隔离构建镜像，暂停写入并等待已有发布完成，再完整备份、重启并重建**已发布快照**。不会发布所有草稿。切换后异常会尝试恢复旧代码/镜像/静态入口，不恢复旧数据库；失败暂停自动更新，必须排查后手动恢复。自动更新仅用于已经验证且数据库向后兼容的可信分支，不能替代数据库升级设计。
 
