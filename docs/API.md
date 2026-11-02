@@ -4,7 +4,7 @@
 
 ## 通用约定与认证
 
-JSON 请求使用 `Content-Type: application/json`；文件用 multipart/form-data，浏览器 FormData 不手动设置 boundary。返回通常为 JSON；导出、备份下载返回 ZIP。正常新建/任务提交也返回 200，不是 201/202。异步操作返回 `{ "job": "任务ID" }`，必须轮询任务直至 success/failed，不能收到 ID 就报告发布成功。
+JSON 请求使用 `Content-Type: application/json`；文件用 multipart/form-data，浏览器 FormData 不手动设置 boundary。返回通常为 JSON；导出、备份下载返回 ZIP。通常新建/发布任务提交返回 200；系统程序更新提交单独返回 202。异步操作返回 `{ "job": "任务ID" }`，必须轮询任务直至 success/failed，不能收到 ID 就报告发布成功。
 
 登录返回 username/ csrf，同时写入 `blog_session` Cookie：HttpOnly、SameSite=Strict、Path=/api、7 天；除 COOKIE_SECURE=false 外启用 Secure。数据库保存 Token 哈希；密码为 scrypt 盐化哈希。GET session 可重新获得 csrf。管理员写接口必须同时带 Cookie 和 `X-CSRF-Token`。
 
@@ -18,7 +18,7 @@ JSON 请求使用 `Content-Type: application/json`；文件用 multipart/form-da
 
 | 方法 | 路径 | 请求 | 响应/限制 |
 | --- | --- | --- | --- |
-| GET | `/api/health` | 无 | `{ok:true}`；仅存活检查，不能代替发布版本/证书验收 |
+| GET | `/api/health` | 无 | `{ok:true,revision,publishing,writes}`；revision 为镜像 APP_REVISION（未配置时 null），其余为当前发布数与在途写请求数；仅供存活/排空检查，不返回内容或更新设置，不能代替页面/证书验收 |
 | POST | `/api/auth/login` | `{username,password}`，最长 100/256 | `{username,csrf}` + Cookie；8 次/15 分钟 |
 | GET | `/api/auth/session` | 登录 Cookie | `{username,csrf}` |
 | POST | `/api/auth/logout` | Cookie + CSRF | `{ok:true}`，删除当前会话及 Cookie |
@@ -31,6 +31,20 @@ JSON 请求使用 `Content-Type: application/json`；文件用 multipart/form-da
 评论 author 去首尾空白后 1–60 字符，content 1–5000；email 可省略、空或合法邮箱；website 最长 200，是蜜罐字段，非空时返回成功但不写入。关闭评论返回 403。当前提交接口不接收 parent_id；保留历史回复关系不代表已实现新的嵌套回复功能。限流为进程内实现；Cookie 去重不提供强身份或防作弊保证。
 
 以下其余接口均需管理员登录；写方法均需 CSRF。
+
+## 系统程序更新
+
+| 方法 | 路径 | 输入 | 返回与语义 |
+| --- | --- | --- | --- |
+| GET | `/api/system/update` | 管理员 Cookie | `{config,online,worker,pending}`；首次 worker/pending 为 null，config 为 `{mode:"manual",intervalHours:24}` |
+| PUT | `/api/system/update/config` | Cookie + CSRF，`{mode,intervalHours}` | 原样返回已验证的配置；mode 仅 manual/auto，intervalHours 仅数字 1/6/12/24/168；未知键一律 400；可离线保存，不启动执行器 |
+| POST | `/api/system/update/run` | Cookie + CSRF，无正文或空对象 | **202** `{id,requestedAt,trigger:"manual"}`；只是原子提交请求，不代表更新完成；不接收仓库、分支、命令或凭据 |
+
+执行器离线（45 秒无心跳）时提交返回 503；已有 pending/running 任务返回 409；无会话 401，CSRF/Origin 失败 403。全部响应 no-store。配置独立保存在 DATA_DIR/system-update，不进入站点公开 settings 或内容导出，无 SQL 迁移。
+
+worker 可含 `repository,branch,revision,startedAt,heartbeatAt,lastCheckedAt,nextRunAt,paused,job`。revision 是执行器已知的部署代码版本，不能单独证明真实运行容器；任务成功需要执行器同时核对运行健康 revision 与初始化静态标记。job 为最近一条任务：`id,trigger,startedAt,finishedAt,status,message,maintenance,from,to,backup?,rollback?`；status 为 running/success/failed/unchanged；backup 仅备份文件名，不含路径/内容，rollback 为恢复结果。pending 为尚未完成请求，运行时也保留直到完成；字段未发生时可省略。没有完整历史或原始 Git/Docker 日志接口。
+
+后台每 5 秒读状态，重启断线后自动重试。失败会暂停自动更新，手动成功/unchanged 后恢复；执行器重启会将 running 标失败并暂停，不自动重放，保留已启用的维护屏障；心跳离线不会自动解锁。维护阶段除登录/退出、系统更新提交/配置以外的写方法返回 503“系统正在更新，写操作暂时暂停，请稍后重试”，GET 仍可读取；写屏障和在途请求/发布队列计数用于停止唯一写实例前排空。安装、权限、周期语义与回退边界见 [运维](OPERATIONS.md#后台-github-更新)。
 
 ## 文档与历史版本
 

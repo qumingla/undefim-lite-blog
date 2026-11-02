@@ -15,9 +15,16 @@ data/                         DATA_DIR，可配置；不是网站公开根目录
   current -> releases/...     当前版本链接，实际目标可能是绝对路径
   backups/*.zip               私有备份
   admin-access.txt            首次管理员凭据，非公开
+  application-revision        成功完成初始化静态构建的镜像提交标记
+  system-update/              私有更新控制目录，不进入公开快照/内容导出
+    config.json               manual/auto 与 intervalHours，缺省 manual/24
+    request.json              唯一待处理/运行中请求，完成后移除
+    status.json               执行器心跳、来源、最近检查/任务/阶段/回退结果
 ```
 
 `dist/admin` 是后台构建产物；`dist/site` 是本地构建或没有 current 时的回退目录。不要直接编辑产物，它们会被重建覆盖。移动运行目录或容器挂载路径后应检查 `current` 链接是否仍有效。
+
+系统更新文件独立于 SQLite，现有库无需升级；缺失文件按 manual/24、无任务处理。配置使用原子 rename，请求通过临时文件 + 不覆盖的硬链接发布，同一时刻仅一个请求；宿主机 PID 锁和单执行器串行执行，状态文件记录维护写屏障，心跳仅判断执行器在线，失联不自动解除屏障。完整备份只含原有数据库/媒体，不含更新文件与宿主机配置；恢复后默认手动，需单独审核恢复执行器设置。更新不改正文、私密/回收站状态、历史版本或 published_data；镜像 APP_REVISION 改变时 initialize 重新构建已发布快照，成功后才写 application-revision。回滚代码/镜像不恢复旧数据库，不适用于未经设计的不兼容 schema 变更。
 
 ## 表结构
 
