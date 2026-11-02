@@ -16,7 +16,7 @@ cleanup() {
  rm -rf "$temp"
 }
 trap cleanup EXIT INT TERM
-git clone --quiet --no-hardlinks "$source_repo" "$repo"
+git -c safe.directory="$source_repo" clone --quiet --no-hardlinks "$source_repo" "$repo"
 git -C "$repo" branch -M main
 git -C "$repo" remote set-url origin https://github.com/undefim/undefim-lite-blog.git
 printf 'services:\n  blog:\n    ports: !reset []\n' > "$temp/override.yaml"
@@ -45,5 +45,51 @@ compose restart --no-deps blog
 compose exec -T -e CONTAINER_SMOKE_TEST=true -e EXPECTED_REVISION="$EXPECTED_REVISION" blog node scripts/verify-container.mjs
 [ "$(compose ps -q updater)" = "$updater_id" ]
 check_online
+# A controlled Git fixture replaces only fetch; Git worktrees, image builds,
+# backup, stop/start, revision checks and rollback all use the real Docker engine.
+compose exec -T --user 1000:1000 updater sh -c 'git -c user.name=Compose-QA -c user.email=qa@example.invalid -c core.hooksPath=/dev/null commit --allow-empty -m "isolated deployment fixture"' >/dev/null
+target=$(compose exec -T --user 1000:1000 updater git rev-parse HEAD)
+compose exec -T --user 1000:1000 updater git reset --hard "$EXPECTED_REVISION" >/dev/null
+compose exec -T --user 0 -e QA_TARGET="$target" updater sh -s <<'FIXTURE'
+set -eu
+printf '%s' "$QA_TARGET" > /tmp/blog-qa-target
+cat > /usr/local/bin/git <<'GIT'
+#!/bin/sh
+for arg; do
+ if [ "$arg" = fetch ]; then exec /usr/bin/git update-ref refs/remotes/origin/main "$(cat /tmp/blog-qa-target)"; fi
+done
+exec /usr/bin/git "$@"
+GIT
+mv /usr/local/bin/docker /usr/local/bin/docker-test-real
+cat > /usr/local/bin/docker <<'DOCKER'
+#!/bin/sh
+for arg; do
+ if [ "$arg" = up ] && [ -f /tmp/blog-qa-fail-start ]; then rm /tmp/blog-qa-fail-start; exit 1; fi
+done
+exec /usr/local/bin/docker-test-real "$@"
+DOCKER
+chmod 755 /usr/local/bin/git /usr/local/bin/docker
+touch /tmp/blog-qa-fail-start
+FIXTURE
+request() {
+ compose exec -T blog node --input-type=module -e 'import {createSystemUpdate} from "./server/system-update.mjs";await createSystemUpdate("/app/data").request();'
+}
+wait_job() {
+ compose exec -T -e QA_STATUS="$1" updater node --input-type=module -e 'import fs from "node:fs/promises";const file=process.env.UPDATE_DATA_DIR+"/system-update/status.json";for(let i=0;i<360;i++){const s=JSON.parse(await fs.readFile(file));if(s.job?.status===process.env.QA_STATUS){if(s.job.status==="failed"&&!s.job.rollback?.startsWith("已恢复"))throw Error("rollback failed");console.log("实际 Docker 更新结果："+s.job.status);process.exit(0)}await new Promise(r=>setTimeout(r,2000))}throw Error("update timeout")'
+}
+request
+wait_job failed
+compose exec -T -e CONTAINER_SMOKE_TEST=true -e EXPECTED_REVISION="$EXPECTED_REVISION" blog node scripts/verify-container.mjs
+request
+wait_job success
+compose exec -T blog node -e 'require("fs").unlinkSync("/app/data/.container-smoke-release")'
+compose exec -T -e CONTAINER_SMOKE_TEST=true -e EXPECTED_REVISION="$target" blog node scripts/verify-container.mjs
+# Successful updates exit and restart the worker so mounted new code is loaded.
+for attempt in $(seq 1 60); do
+ restarts_after=$(docker inspect --format '{{.RestartCount}}' "$updater_id")
+ if [ "$restarts_after" -gt "$restarts" ] && check_online; then break; fi
+ sleep 2
+done
+[ "$restarts_after" -gt "$restarts" ]
 compose exec -T updater docker compose version
-printf '隔离 Compose 验收通过：首次启动、心跳、互斥锁、强杀恢复、仅重启博客与同版本静态入口。\n'
+printf '隔离 Compose 验收通过：启动、心跳、互斥锁、强杀恢复、仅重启博客、真实 Docker 构建/备份/失败回退/成功切换及执行器重载。\n'

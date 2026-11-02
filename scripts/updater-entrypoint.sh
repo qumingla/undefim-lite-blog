@@ -1,5 +1,6 @@
 #!/bin/sh
 set -eu
+umask 077
 repo=${UPDATE_REPO_DIR:?Missing UPDATE_REPO_DIR}
 cd "$repo"
 test -d .git && test ! -L .git
