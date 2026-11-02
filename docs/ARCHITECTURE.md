@@ -42,7 +42,7 @@ flowchart LR
 
 ### 后台系统更新链路
 
-管理员“系统更新” → 已有会话/CSRF/Origin 校验 → 私有 DATA_DIR/system-update 文件队列 → 宿主机唯一 Node 执行器 → 固定 GitHub 来源与分支快进检查 → 临时 Git 工作树构建候选镜像 → 维护写屏障/在途请求及发布排空 → 完整备份 → 切换代码/镜像 → initialize 按 APP_REVISION 重建已发布快照 → 校验新 revision/静态标记 → 完成。失败暂停自动检查；切换后尝试恢复旧代码/镜像/静态入口，不覆盖当前数据库。容器不持有 Git 或 Docker 控制权限；宿主机部署账号和来源分支必须可信。完整配置、安全边界和不能自动恢复的情况见 [运维](OPERATIONS.md#后台-github-更新)。
+管理员“系统更新” → 已有会话/CSRF/Origin 校验 → 私有 DATA_DIR/system-update 文件队列 → Compose 唯一 updater 容器 → 固定 GitHub 来源与分支快进检查 → 临时 Git 工作树构建候选镜像 → 维护写屏障/在途请求及发布排空 → 完整备份 → 切换代码/镜像 → initialize 按 APP_REVISION 重建已发布快照 → 校验新 revision/静态标记 → 完成。失败暂停自动检查；切换后尝试恢复旧代码/镜像/静态入口，不覆盖当前数据库。blog 不持有 Git 或 Docker 控制权限；updater 具有 Docker socket 和专用源码读写权限，使用 flock 跨 PID 命名空间互斥，来源分支必须可信。完整配置、安全边界和不能自动恢复的情况见 [运维](OPERATIONS.md#后台-github-更新)。
 
 ## 实现路线与保留原则
 
@@ -73,8 +73,8 @@ flowchart LR
 | `server/uploads.mjs` | 上传限额、ZIP 路径检查、媒体保存、相对资源引用改写 |
 | `server/publish.mjs` | 构建队列、快照、release、发布状态、旧链接页、可选 CDN 清除 |
 | `server/backup.mjs` | 数据库在线备份、媒体和清单打 ZIP |
-| `server/update-source.mjs`、`server/system-update.mjs`、`admin/src/SystemUpdate.tsx` | 共享内置开源仓库/main 默认来源、已知旧仓库地址兼容；私有更新文件队列、配置/心跳/维护写屏障与后台更新页；来源显示不依赖执行器在线，独立于站点公开 settings |
-| `scripts/update-worker.mjs`、`deploy/blog-update-worker.*` | 宿主机单执行器、GitHub 快进检查、隔离构建、备份/切换/回退和 systemd 安装模板 |
+| `server/update-source.mjs`、`server/system-update.mjs`、`admin/src/SystemUpdate.tsx` | 共享内置规范开源仓库/main 默认来源、精确 origin 校验；私有更新文件队列、配置/心跳/维护写屏障与后台更新页；来源显示不依赖执行器在线，独立于站点公开 settings |
+| `scripts/update-worker.mjs`、`Dockerfile.updater`、`scripts/updater-entrypoint.sh`、`scripts/verify-compose.sh` | Compose 单执行器、工具镜像与降权入口、flock、GitHub 快进检查、隔离构建、备份/切换/回退与真实容器烟测 |
 | `scripts/import-halo.mjs` | 一次性 Halo 导入，拒绝已有文章数据库 |
 | `scripts/recover-assets.mjs`、`archive-external-images.mjs` | 迁移资源补全，使用前逐项阅读，不能当日常更新脚本 |
 | `scripts/initialize.mjs`、`create-admin.mjs` | 容器初始化、首次管理员和首次站点构建 |

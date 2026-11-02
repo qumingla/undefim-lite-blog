@@ -17,7 +17,7 @@
 | 登录/权限 | auth.mjs、index hooks、admin api/Login/Account、代理配置 | Cookie、会话、CSRF、Origin | 未登录、伪造来源、无效 CSRF、改密注销其他会话 | API、OPERATIONS、CHANGELOG |
 | 分类/标签/站点设置 | defaultSettings、cleanSettings、Taxonomy/SiteSettings、页面路由 | 稳定 ID 改名、slug、设置和生成页面 | 草稿/快照名称、历史不重写、路径冲突、保存后构建 | API、DATA-MODEL、ARCHITECTURE、CHANGELOG |
 | SQLite 结构 | db.mjs、backup/verify-backup、import-halo、所有读写调用方 | 版本迁移、数据转换与回退 | 旧库升级、幂等、完整性、备份恢复、失败回退 | DATA-MODEL、OPERATIONS、CHANGELOG |
-| 后台 GitHub 更新 | update-source.mjs、system-update.mjs、update-worker.mjs、SystemUpdate.tsx、index hooks、publish、initialize、compose、Dockerfile、systemd 模板、system-update tests | 私有文件队列、固定来源、心跳/锁、定时、维护排空、备份/镜像/快照切换与回退 | 未登录/CSRF/Origin、重复请求、脏树/分叉拒绝、定时暂停恢复、失败不切换/保留数据；Docker 实测与命令替身测试分开记录；后台八宽度 | API、DATA-MODEL、ARCHITECTURE、OPERATIONS、README、CHANGELOG |
+| 后台 GitHub 更新 | update-source.mjs、system-update.mjs、update-worker.mjs、SystemUpdate.tsx、index hooks、publish、initialize、compose、Dockerfile/updater、updater-entrypoint、verify-compose、system-update tests | 私有文件队列、固定来源、心跳/flock/容器重启、定时、维护排空、备份/镜像/快照切换与回退 | 未登录/CSRF/Origin、重复请求、脏树/分叉拒绝、定时暂停恢复、失败不切换/保留数据；Docker 实测与命令替身测试分开记录；后台八宽度 | API、DATA-MODEL、ARCHITECTURE、OPERATIONS、README、CHANGELOG |
 | 部署/证书/备份 | Dockerfile、compose、nginx-oracle、initialize、backup | 环境变量、代理、镜像、恢复步骤 | health + 实际页面、TLS、Cookie、缓存与恢复 | OPERATIONS、README、状态报告（仅实测）、CHANGELOG |
 | 依赖/运行时安全 | package.json/lock、Dockerfile、漏洞涉及的调用方、markdown-security tests | 核对官方公告、精确锁定版本、元数据解析与运行时基线 | npm audit、补丁 Node 上 test/check/隔离构建；排版变化检查公式与多宽度；生产版本单独核实 | ARCHITECTURE、OPERATIONS、行为涉及的 API/DATA-MODEL、CHANGELOG |
 | 搜索/SEO/RSS | search-index/rss/sitemap、Site、site.ts、content | 索引、metadata、客户端搜索 | 只含公开内容、慢网输入、中文、规范链接与日期 | ARCHITECTURE、CHANGELOG |
