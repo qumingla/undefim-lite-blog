@@ -181,7 +181,7 @@ Dockerfile 固定 `node:24.22.1-bookworm-slim`；后续安全升级需显式更�
 3. 在服务器应用目录执行：
 
 ```sh
-APP_REVISION=$(git rev-parse HEAD) sudo -E docker compose up -d --build
+sudo env APP_REVISION="$(git rev-parse HEAD)" docker compose up -d --build
 sudo docker compose ps
 sudo docker compose logs --tail=100 blog
 curl --fail http://127.0.0.1:4322/api/health

@@ -31,7 +31,7 @@ if compose exec -T --user 1000:1000 updater node --input-type=module -e 'import 
  echo 'Lock incorrectly allowed a second worker'; exit 1
 fi
 updater_id=$(compose ps -q updater)
-compose exec -T --user 1000:1000 updater node -e 'const fs=require("fs");const pid=fs.readdirSync("/proc").filter(x=>/^\d+$/.test(x)).find(x=>{try{return fs.readFileSync("/proc/"+x+"/cmdline","utf8").split("\0")[1]==="scripts/update-worker.mjs"}catch{return false}});if(!pid)process.exit(1);process.kill(Number(pid),"SIGKILL")'
+compose exec -T --user 1000:1000 updater node -e 'const fs=require("fs");const pid=fs.readdirSync("/proc").filter(x=>/^\d+$/.test(x)).find(x=>{try{return fs.readFileSync("/proc/"+x+"/cmdline","utf8").split("\0")[1]==="scripts/update-worker.mjs"}catch{return false}});if(!pid)process.exit(1);process.kill(Number(pid),"SIGKILL")' || [ "$?" -eq 137 ]
 # Kill the process inside the container: Docker kill is an explicit manual stop
 # and intentionally suppresses restart policies. Recover without deleting the lock file.
 for attempt in $(seq 1 60); do
@@ -76,7 +76,16 @@ request() {
  compose exec -T blog node --input-type=module -e 'import {createSystemUpdate} from "./server/system-update.mjs";await createSystemUpdate("/app/data").request();'
 }
 wait_job() {
- compose exec -T -e QA_STATUS="$1" updater node --input-type=module -e 'import fs from "node:fs/promises";const file=process.env.UPDATE_DATA_DIR+"/system-update/status.json";for(let i=0;i<360;i++){const s=JSON.parse(await fs.readFile(file));if(s.job?.status===process.env.QA_STATUS){if(s.job.status==="failed"&&!s.job.rollback?.startsWith("已恢复"))throw Error("rollback failed");console.log("实际 Docker 更新结果："+s.job.status);process.exit(0)}await new Promise(r=>setTimeout(r,2000))}throw Error("update timeout")'
+ for attempt in $(seq 1 360); do
+  result=$(compose exec -T updater node -e 'const fs=require("fs");const s=JSON.parse(fs.readFileSync(process.env.UPDATE_DATA_DIR+"/system-update/status.json"));console.log((s.job?.status||"none")+"|"+(s.job?.rollback||""))' 2>/dev/null || true)
+  case "$result" in
+   "$1|"*)
+    if [ "$1" = failed ]; then case "$result" in 'failed|已恢复'*) ;; *) echo 'Rollback did not complete'; exit 1;; esac; fi
+    echo "实际 Docker 更新结果：$1"; return 0;;
+  esac
+  sleep 2
+ done
+ echo 'Update timed out'; exit 1
 }
 request
 wait_job failed
