@@ -1,32 +1,7 @@
 ---
-// Pixel mascot for the Kiln theme, drawn on a 22x16 grid and always facing the reader.
-// Skin parts use .m-skin and the face uses .m-eye so colour rules never hide the eyes.
-// Poses (data-pose on .mascot-walker) swap eyes, raise arms or show the flag; kiln.ts drives them.
+// Pixel mascot for the Kiln theme, always facing the reader. Markup is shared with the admin (src/lib/kiln-art.mjs);
+// poses (data-pose) swap eyes, raise arms or show the flag, and kiln.ts drives them.
+import {mascotMarkup} from '../lib/kiln-art.mjs';
 const {size=3,label='像素吉祥物，点击互动',walker=false,class:extra}=Astro.props;
 ---
-<span class:list={['mascot-walker',extra,{'is-wanderer':walker}]} data-pose="idle">
- <button type="button" class="mascot" aria-label={label}>
-  <svg width={22*size} height={16*size} viewBox="0 0 22 16" shape-rendering="crispEdges" aria-hidden="true">
-   <rect class="mascot-shadow" x="4" y="15" width="14" height="1"/>
-   <g class="mascot-legs-a"><rect class="m-skin" x="4" y="11" width="2" height="3"/><rect class="m-skin" x="12" y="11" width="2" height="3"/></g>
-   <g class="mascot-legs-b"><rect class="m-skin" x="8" y="11" width="2" height="3"/><rect class="m-skin" x="16" y="11" width="2" height="3"/></g>
-   <g class="mascot-body">
-    <g class="mascot-arm mascot-arm-l"><rect class="m-skin" x="1" y="5" width="2" height="3"/></g>
-    <g class="mascot-arm mascot-arm-r"><rect class="m-skin" x="19" y="5" width="2" height="3"/>
-     <g class="mascot-flag"><rect class="m-pole" x="20" y="0" width="1" height="5"/><g class="flag-a"><rect class="m-cloth" x="21" y="0" width="3" height="1"/><rect class="m-cloth" x="21" y="1" width="2" height="1"/></g><g class="flag-b"><rect class="m-cloth" x="21" y="0" width="2" height="1"/><rect class="m-cloth" x="21" y="1" width="3" height="1"/></g></g>
-    </g>
-    <rect class="m-skin m-shell" x="3" y="2" width="16" height="10"/>
-    <rect class="m-light" x="3" y="2" width="16" height="1"/>
-    <g class="mascot-blush"><rect x="4" y="9" width="2" height="1"/><rect x="16" y="9" width="2" height="1"/></g>
-    <g class="mascot-look">
-     <g class="mascot-eyes eyes-open"><rect class="m-eye" x="7" y="5" width="2" height="3"/><rect class="m-eye" x="13" y="5" width="2" height="3"/></g>
-     <g class="mascot-eyes eyes-closed"><rect class="m-eye" x="6" y="7" width="3" height="1"/><rect class="m-eye" x="13" y="7" width="3" height="1"/></g>
-     <g class="mascot-eyes eyes-happy"><rect class="m-eye" x="6" y="7" width="1" height="1"/><rect class="m-eye" x="7" y="6" width="2" height="1"/><rect class="m-eye" x="9" y="7" width="1" height="1"/><rect class="m-eye" x="12" y="7" width="1" height="1"/><rect class="m-eye" x="13" y="6" width="2" height="1"/><rect class="m-eye" x="15" y="7" width="1" height="1"/></g>
-    </g>
-   </g>
-  </svg>
- </button>
- <span class="mascot-bubble" role="status" aria-live="polite"></span>
- <span class="mascot-thought" aria-hidden="true"><i></i><i></i><i></i><b><svg width="18" height="18" viewBox="0 0 6 6" shape-rendering="crispEdges"><g class="idea idea-bulb"><rect x="1" y="0" width="4" height="1"/><rect x="0" y="1" width="6" height="2"/><rect x="1" y="3" width="4" height="1"/><rect class="idea-base" x="2" y="4" width="2" height="1"/><rect class="idea-base dark" x="2" y="5" width="2" height="1"/></g><g class="idea idea-star"><rect x="2" y="0" width="2" height="2"/><rect x="0" y="2" width="6" height="1"/><rect x="1" y="3" width="4" height="1"/><rect x="1" y="4" width="1" height="1"/><rect x="4" y="4" width="1" height="1"/></g><g class="idea idea-code"><rect x="1" y="1" width="1" height="1"/><rect x="0" y="2" width="1" height="1"/><rect x="1" y="3" width="1" height="1"/><rect x="3" y="0" width="1" height="2"/><rect x="2" y="2" width="1" height="2"/><rect x="4" y="1" width="1" height="1"/><rect x="5" y="2" width="1" height="1"/><rect x="4" y="3" width="1" height="1"/></g><g class="idea idea-moon"><rect x="2" y="0" width="3" height="1"/><rect x="1" y="1" width="2" height="1"/><rect x="1" y="2" width="2" height="1"/><rect x="1" y="3" width="2" height="1"/><rect x="2" y="4" width="3" height="1"/></g></svg></b></span>
- <span class="mascot-zzz" aria-hidden="true"><i>z</i><i>z</i><i>Z</i></span>
-</span>
+<span class:list={['mascot-walker',extra,{'is-wanderer':walker}]} data-pose="idle" set:html={mascotMarkup({size,label})}></span>
