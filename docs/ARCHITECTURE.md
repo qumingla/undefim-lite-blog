@@ -53,8 +53,9 @@ flowchart LR
 | `src/layouts/Site.astro` | 共同页面外壳、SEO、左右栏、导航、搜索弹层、主题初始化、可选统计脚本 |
 | `src/components/PostCard.astro`、`Listing.astro`、`Icon.astro` | 列表卡片、分页与统一 SVG 图标 |
 | `src/styles/site.css` | 前台主题变量、透明卡片、正文排版、断点和动效降级 |
+| `server/themes.mjs`、`src/styles/kiln.css`、`src/scripts/kiln.ts`、`src/components/Mascot.astro`、`MascotStage.astro` | 可选前台主题登记；窑火主题样式（全部限定在 `:root[data-skin=kiln]`）、交互与像素吉祥物 |
 | `src/scripts/site.ts` | 主题、移动菜单、搜索、代码复制、图片放大、目录高亮、评论与计数；启动背景动画 |
-| `src/scripts/background.ts` | 本地 Canvas 星点与短流星；尺寸变化、页面隐藏/恢复与减少动态偏好的生命周期 |
+| `src/scripts/background.ts` | 共享 Canvas 生命周期；Dream 星点与短流星、窑火余烬两个场景；尺寸变化、页面隐藏/恢复与减少动态偏好 |
 | `src/lib/content.mjs` | 构建快照读取、公开文章排序、摘要、正文转换、友链特殊渲染与资源映射 |
 | `src/pages/` | 静态路由和索引，见下表 |
 | `admin/src/main.tsx` | API 客户端和后台状态；App、Login、Editor、JobRows、Media、Comments、Taxonomy、SiteSettings、Account |
@@ -99,6 +100,14 @@ flowchart LR
 沿用本地 WenCang 字体（Dream），在 Site.astro 预加载；列表标题 22.4px/1.25，摘要 15.4px/1.5，正文 16px/1.8，手机继续使用其独立字号/行距。明暗主题使用 CSS 变量与 data-theme，用户选择保存在 localStorage；无有效手动选择时跟随系统变化。
 
 背景动态为缓慢向右上漂移、闪烁的星点与偶发短流星，最多 300 星点、2 条流星，30 FPS、DPR 上限 2。页面隐藏/pagehide 暂停，恢复后继续；prefers-reduced-motion 停止并清空背景动画，同时关闭卡片入场、头像旋转和过渡，返回顶部也改为即时滚动。
+
+### 可替换主题
+
+站点设置 `siteTheme` 选择前台主题，默认 `dream`（上述原站视觉）。主题在构建时写入 `<html data-skin>`，保存设置后须重新发布站点才生效。两套样式都会打包，新主题样式必须全部限定在对应 `data-skin` 选择器下，不能改动其他主题的输出。
+
+窑火 `kiln` 为仅深色主题：`data-dark-only` 固定 `data-theme=dark`，隐藏明暗切换、忽略系统配色变化；不使用 background、accent 设置和 WenCang 字体预加载，cardOpacity 仍参与卡片透明度。视觉为暖调深色底、渐隐点阵、Canvas 余烬（最多 90 颗，复用 30 FPS / DPR 2 / 隐藏暂停生命周期）、毛玻璃卡片和珊瑚色强调色 #d97757；标题衬线、元信息等宽，不使用外部字体或 emoji。像素吉祥物为 22x16 网格 SVG：资料卡舞台中随机走动、眨眼、眼睛跟随指针（仅精确指针），点击跳跃并显示短句；页脚、搜索框标题、404 页各有一只。交互：首屏卡片错峰入场，首屏以下卡片进入视口时显现；卡片指针光斑与列表卡片悬停上浮（仅可悬停设备），触屏为按压缩放反馈；导航下划线滑入；文章页顶栏阅读进度条；滚动超过一屏显示返回顶部；`/` 打开搜索（输入框内不触发）；搜索框与图片放大弹出动画；抽屉 Esc 或点击外部关闭。减少动态偏好下关闭所有动画、走动和眼睛跟随，延迟显现的卡片直接可见。
+
+窑火的手机端（<=767px）在首页、分页、分类/标签列表、归档等非文章页把资料卡作为紧凑卡片放在文章列表上方（60px 头像与名称/简介/所在地横排并垂直居中，简介最多两行，舞台高 74px，统计三列带分隔线）；文章页直接从正文开始。抽屉菜单顶部也有吉祥物舞台，导航为两列大按钮。平板和桌面断点与 Dream 相同。
 
 | 宽度 | 前台布局 | 后台布局 |
 | --- | --- | --- |
