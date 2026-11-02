@@ -1,5 +1,12 @@
 # 开发维护记录
 
+## 2026-11-02：新增 GitHub Actions CI 并启用 main 分支保护
+
+- 新增 `.github/workflows/ci.yml`：pull request、推送 main 和手动触发时运行。`Test, typecheck and build` 按 `.node-version` 安装 Node，执行 `npm ci`、`npm test`、`npm run check`，在 runner 临时目录的空库上执行前后台 `npm run build`；`Docker image build` 只构建镜像不推送。权限仅 `contents: read`，不使用任何仓库密钥，不连接正式环境。
+- GitHub 仓库 main 分支启用保护：合并须通过上述两项检查且分支与 main 同步，禁止强推和删除。管理员不强制执行，紧急情况下仍可绕过。
+- 无业务代码、接口或数据库变化，未重新部署或发布静态站点。同步 OPERATIONS 验证范围。
+- 验证：本地以干净 main 副本执行 `npm ci`、15 项测试、TypeScript 检查与隔离空库构建通过；工作流在 PR 上的实际运行结果见该 PR 检查记录。CI 不覆盖浏览器多宽度验收和生产发布。
+
 ## 2026-10-22：核查 PHP / Node.js 公告并修复运行时与依赖风险
 
 - 联网核对 10 月 21 日 PHP、Node.js 官方公告，结合源码和部署模板确认项目没有 PHP 执行链路；本地 Node v24.8.0 低于修复版。将项目运行时约束改为 Node 24 LTS >=24.22.1 <25，新增 `.node-version`，Docker 镜像固定为 `node:24.22.1-bookworm-slim`，核实官方镜像提供 Linux amd64/arm64。
