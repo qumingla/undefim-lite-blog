@@ -163,7 +163,7 @@ export async function workerTick(options,state,{execute=executeUpdate,now=Date.n
 // flock is owned by the kernel and works across PID namespaces. The helper's
 // stdin closes even if its parent is killed, releasing the lock after a crash.
 export async function acquireWorkerLock(repoDir){
- const child=spawn('flock',['--exclusive','--nonblock',path.join(repoDir,'.git','blog-update-worker.lock'),process.execPath,'--input-type=module','-e',`process.stdout.write('locked\n');process.stdin.resume();process.stdin.on('end',()=>process.exit(0));`],{stdio:['pipe','pipe','pipe']});
+ const child=spawn('flock',['--exclusive','--nonblock',path.join(repoDir,'.git','blog-update-worker.lock'),process.execPath,'--input-type=module','-e',`process.stdout.write('locked');process.stdin.resume();process.stdin.on('end',()=>process.exit(0));`],{stdio:['pipe','pipe','pipe']});
  let releasing=false,acquired=false;
  const closed=new Promise(resolve=>child.once('close',code=>{resolve(code);if(acquired&&!releasing)process.exit(1)}));
  await new Promise((resolve,reject)=>{
