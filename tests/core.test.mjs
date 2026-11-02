@@ -69,4 +69,18 @@ test('保存已发布内容为私密自动撤回，失败可重试且不公开�
   const savedAgain=await save();assert.equal(savedAgain.json().unpublishJob,null);assert.equal(queued.length,2);
  } finally {await app.close()}
 });
+test('前台主题默认为 Dream，只接受已登记的主题并写入公开快照',async()=>{
+ const {settings}=await import('../server/db.mjs');const {publicExport}=await import('../server/db.mjs');
+ assert.equal(settings().siteTheme,'dream');
+ const app=await createApp();
+ try {
+  const login=await app.inject({method:'POST',url:'/api/auth/login',payload:{username:'test',password:'test-password-long-enough'}});
+  const headers={cookie:login.headers['set-cookie'].split(';')[0],'x-csrf-token':login.json().csrf};
+  const rejected=await app.inject({method:'PUT',url:'/api/settings',headers,payload:{siteTheme:'neon'}});
+  assert.equal(rejected.statusCode,400);assert.equal(settings().siteTheme,'dream');
+  const saved=await app.inject({method:'PUT',url:'/api/settings',headers,payload:{siteTheme:'kiln'}});
+  assert.equal(saved.statusCode,200);assert.equal(settings().siteTheme,'kiln');assert.equal(publicExport().settings.siteTheme,'kiln');
+  await app.inject({method:'PUT',url:'/api/settings',headers,payload:{siteTheme:'dream'}});
+ } finally {await app.close()}
+});
 test.after(async()=>{db.close();await fs.rm(process.env.DATA_DIR,{recursive:true,force:true})});
