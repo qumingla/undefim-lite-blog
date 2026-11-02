@@ -80,10 +80,12 @@
 :root[data-skin=kiln] .profile-stage[data-scene=mountain] .kiln-campfire{transform:translateX(170px);opacity:0}
 :root[data-skin=kiln] .kiln-fire{position:relative;display:block;overflow:visible}
 :root[data-skin=kiln] .fire-glow{position:absolute;left:50%;bottom:-8px;width:120px;height:52px;margin-left:-60px;border-radius:50%;background:radial-gradient(closest-side,rgba(246,170,96,.34),rgba(217,119,87,.13) 55%,transparent);animation:kiln-glow 2.4s ease-in-out infinite;transition:scale .6s var(--ease),filter .6s ease}
-:root[data-skin=kiln] .fire-flames{transform-box:fill-box;transform-origin:50% 100%;transition:transform .6s var(--spring)}
-:root[data-skin=kiln] .flame-frame{opacity:0;animation:kiln-flame-frame .54s steps(1) infinite}
-:root[data-skin=kiln] .flame-2{animation-delay:-.18s}
-:root[data-skin=kiln] .flame-3{animation-delay:-.36s}
+/* One flame cycle shows each of the three frames for a third of --flame-t. The frame delays are derived from the same
+   variable, so changing the speed (stoked fire) can never leave a gap or show two frames at once. */
+:root[data-skin=kiln] .fire-flames{--flame-t:.54s;transform-box:fill-box;transform-origin:50% 100%;transition:transform .6s var(--spring)}
+:root[data-skin=kiln] .flame-frame{opacity:0;animation:kiln-flame-frame var(--flame-t) steps(1) infinite}
+:root[data-skin=kiln] .flame-2{animation-delay:calc(var(--flame-t) / -3)}
+:root[data-skin=kiln] .flame-3{animation-delay:calc(var(--flame-t) * -2 / 3)}
 :root[data-skin=kiln] .flame-outer{fill:#d97757}
 :root[data-skin=kiln] .flame-mid{fill:#ec9a5c}
 :root[data-skin=kiln] .flame-core{fill:#f6d38a}
@@ -99,8 +101,7 @@
 :root[data-skin=kiln] .spark.s3{margin-left:-2px;animation-duration:1.8s;animation-delay:1.3s;background:#ec9a5c}
 :root[data-skin=kiln] .spark.s4{margin-left:5px;animation-name:kiln-spark-alt;animation-duration:2.4s;animation-delay:1.9s}
 :root[data-skin=kiln] .spark.s5,:root[data-skin=kiln] .spark.s6{display:none}
-:root[data-skin=kiln] .profile-stage[data-stoked] .fire-flames{transform:scale(1.18)}
-:root[data-skin=kiln] .profile-stage[data-stoked] .flame-frame{animation-duration:.4s}
+:root[data-skin=kiln] .profile-stage[data-stoked] .fire-flames{--flame-t:.4s;transform:scale(1.18)}
 :root[data-skin=kiln] .profile-stage[data-stoked] .fire-glow{scale:1.3;filter:brightness(1.25)}
 :root[data-skin=kiln] .profile-stage[data-stoked] .spark.s5{display:block;margin-left:-8px;animation-duration:1.6s;animation-delay:.4s}
 :root[data-skin=kiln] .profile-stage[data-stoked] .spark.s6{display:block;margin-left:7px;animation-name:kiln-spark-alt;animation-duration:1.9s;animation-delay:1.1s;background:#ec9a5c}
