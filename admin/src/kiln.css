@@ -1,0 +1,140 @@
+/* Kiln admin skin. Colours come from kiln-colors.generated.css (derived from style.css); this file is the hand-made
+   design layer: tokens, atmosphere, depth, motion and the mascot camp. Every rule is scoped to :root[data-skin=kiln],
+   so the Dream admin is untouched. The mascot and campfire styles live in src/styles/kiln-creatures.css. */
+
+/* Dream renders the login card directly; the Kiln login stacks the camp above it. */
+.login-stack{display:contents}
+
+:root[data-skin=kiln]{--accent:#d97757;--accent-soft:#e8a07f;--ember:#f0b49b;--muted:#8c847a;--border:rgba(240,225,210,.09);--line:rgba(240,225,210,.13);--panel:#1d1a16;--input:#14110e;--radius:14px;--ease:cubic-bezier(.2,.8,.2,1);--spring:cubic-bezier(.34,1.56,.64,1);--serif:'Iowan Old Style','Songti SC','Noto Serif SC','Source Han Serif SC',Georgia,serif;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-family:'PingFang SC','Hiragino Sans GB','Noto Sans SC',system-ui,sans-serif;color:#d4cdc3;background:#12100e;scrollbar-color:#4a3e36 transparent;scrollbar-width:thin}
+:root[data-skin=kiln] ::selection{background:rgba(217,119,87,.38);color:#fff}
+:root[data-skin=kiln] button:focus-visible,:root[data-skin=kiln] a:focus-visible,:root[data-skin=kiln] summary:focus-visible{outline:2px solid var(--accent-soft);outline-offset:3px;border-radius:5px}
+:root[data-skin=kiln] a:hover{color:var(--accent-soft)}
+:root[data-skin=kiln] h1,:root[data-skin=kiln] .login-card h1{font-family:var(--serif);font-weight:400;letter-spacing:.01em;color:#f1ece4}
+:root[data-skin=kiln] h2{font-family:var(--serif);font-weight:500;color:#e8e1d8}
+
+/* Atmosphere: warm glow plus a dot grid that fades down the page. */
+:root[data-skin=kiln] .admin-shell{background:radial-gradient(900px 560px at 6% -12%,rgba(217,119,87,.13),transparent 62%),radial-gradient(800px 700px at 104% 108%,rgba(110,130,170,.07),transparent 60%),#12100e}
+:root[data-skin=kiln] .admin-shell:before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(rgba(240,225,210,.07) 1px,transparent 1.3px) 0 0/24px 24px;-webkit-mask-image:linear-gradient(to bottom,#000,transparent 80%);mask-image:linear-gradient(to bottom,#000,transparent 80%)}
+:root[data-skin=kiln] .workspace{position:relative;z-index:1}
+
+/* Sidebar */
+:root[data-skin=kiln] .sidebar{background:linear-gradient(180deg,#1a1713,#15120f);border-right:1px solid var(--border)}
+:root[data-skin=kiln] .admin-brand img{padding:2px;border:1.5px solid rgba(217,119,87,.45);transition:border-color .3s ease,transform .4s var(--spring)}
+:root[data-skin=kiln] .admin-brand:hover img{border-color:var(--accent);transform:scale(1.05)}
+:root[data-skin=kiln] .admin-brand strong{font:400 23px/1.15 var(--serif);color:#f1ece4}
+:root[data-skin=kiln] .admin-brand span{font-family:var(--mono);letter-spacing:.14em;color:var(--muted)}
+:root[data-skin=kiln] .sidebar nav button{position:relative;border-radius:9px;transition:background-color .2s ease,color .2s ease,transform .3s var(--spring)}
+:root[data-skin=kiln] .sidebar nav button:hover{background:rgba(240,225,210,.05);color:#e6dfd6;transform:translateX(2px)}
+:root[data-skin=kiln] .sidebar nav button svg{transition:color .2s ease,transform .3s var(--spring)}
+:root[data-skin=kiln] .sidebar nav button:hover svg{transform:scale(1.12)}
+:root[data-skin=kiln] .sidebar nav button:before{content:'';position:absolute;left:0;top:25%;bottom:25%;width:3px;border-radius:0 3px 3px 0;background:var(--accent);transform:scaleY(0);transition:transform .3s var(--ease)}
+:root[data-skin=kiln] .sidebar nav button.active{background:rgba(217,119,87,.11);color:#f0b49b}
+:root[data-skin=kiln] .sidebar nav button.active:before{transform:scaleY(1)}
+:root[data-skin=kiln] .sidebar-footer{border-top-color:var(--border);gap:12px}
+:root[data-skin=kiln] .sidebar-footer a:hover,:root[data-skin=kiln] .sidebar-footer button:hover{color:var(--accent-soft)}
+
+/* Mascot camp: a small scene at the bottom of the sidebar and above the login card. */
+:root[data-skin=kiln] .camp-stage{position:relative}
+:root[data-skin=kiln] .camp-sidebar{height:76px;margin:0 -4px 6px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,transparent,rgba(217,119,87,.08))}
+:root[data-skin=kiln] .camp-sidebar .mascot-walker{position:absolute;left:8px;bottom:0}
+:root[data-skin=kiln] .camp-sidebar .kiln-campfire{position:absolute;right:10px;bottom:0;width:42px;height:48px;pointer-events:none}
+:root[data-skin=kiln] .camp-sidebar .mascot-bubble{left:0;transform:translate(0,6px) scale(.9);transform-origin:0 100%}
+:root[data-skin=kiln] .camp-sidebar .mascot-bubble.is-visible{transform:none}
+:root[data-skin=kiln] .camp-sidebar .mascot-bubble:after{left:22px;margin-left:-4px}
+:root[data-skin=kiln] .camp-sidebar .mascot-thought,:root[data-skin=kiln] .camp-login .mascot-thought{display:none!important}
+:root[data-skin=kiln] .camp-login{display:flex;align-items:flex-end;justify-content:center;gap:40px;height:84px;margin-bottom:-1px;position:relative;z-index:1}
+:root[data-skin=kiln] .camp-login .mascot-walker{position:relative}
+:root[data-skin=kiln] .camp-login .kiln-campfire{position:relative;width:42px;height:48px;pointer-events:none}
+@media(max-height:760px){:root[data-skin=kiln] .camp-sidebar{display:none}}
+
+/* Workspace chrome */
+:root[data-skin=kiln] .workspace-header{-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom-color:var(--border)}
+:root[data-skin=kiln] .connection i{animation:kiln-beat 2.6s ease-in-out infinite}
+:root[data-skin=kiln] .page-heading .eyebrow,:root[data-skin=kiln] .eyebrow{font-family:var(--mono);letter-spacing:.16em}
+:root[data-skin=kiln] .page-heading h1{font-size:30px}
+
+/* Surfaces */
+:root[data-skin=kiln] .panel,:root[data-skin=kiln] .document-settings,:root[data-skin=kiln] .writing-panel{background:linear-gradient(180deg,rgba(255,240,225,.028),rgba(255,240,225,0) 60%),var(--panel);border:1px solid var(--border);border-radius:14px;box-shadow:inset 0 1px 0 rgba(255,240,225,.04),0 16px 34px -22px rgba(0,0,0,.75)}
+:root[data-skin=kiln] .writing-panel{overflow:hidden}
+:root[data-skin=kiln] .metric{border-radius:14px;border:1px solid var(--border);box-shadow:inset 0 1px 0 rgba(255,240,225,.04);transition:transform .35s var(--ease),border-color .3s ease,box-shadow .35s var(--ease)}
+:root[data-skin=kiln] .metric>svg{transition:color .3s ease,transform .4s var(--spring)}
+:root[data-skin=kiln] .metric strong{font:400 34px/1.1 var(--serif)}
+:root[data-skin=kiln] .recent-row{transition:background-color .2s ease,padding .3s var(--ease)}
+:root[data-skin=kiln] .recent-row:hover{background:rgba(240,225,210,.035);padding-left:8px;padding-right:8px;border-radius:8px}
+:root[data-skin=kiln] .table-panel tbody tr{transition:background-color .2s ease}
+:root[data-skin=kiln] .table-panel tbody tr:hover{background:rgba(240,225,210,.03)}
+:root[data-skin=kiln] .media-card{transition:transform .35s var(--ease),border-color .3s ease}
+@media(hover:hover) and (pointer:fine){
+ :root[data-skin=kiln] .metric:hover,:root[data-skin=kiln] .media-card:hover{transform:translateY(-3px);border-color:rgba(217,119,87,.28)}
+ :root[data-skin=kiln] .metric:hover>svg{color:var(--accent-soft);transform:scale(1.15) rotate(-6deg)}
+}
+
+/* Controls */
+:root[data-skin=kiln] .button{border-radius:9px;transition:background-color .2s ease,border-color .2s ease,transform .25s var(--spring),box-shadow .25s ease}
+:root[data-skin=kiln] .button:hover{transform:translateY(-1px)}
+:root[data-skin=kiln] .button:active{transform:scale(.97)}
+:root[data-skin=kiln] .button.primary{background:var(--accent);color:#1b1410;font-weight:500;border-color:transparent}
+:root[data-skin=kiln] .button.primary:hover{background:var(--accent-soft);box-shadow:0 10px 22px -12px rgba(217,119,87,.8)}
+:root[data-skin=kiln] .field input,:root[data-skin=kiln] .field textarea,:root[data-skin=kiln] .field select,:root[data-skin=kiln] input:not([type=checkbox]):not([type=file]),:root[data-skin=kiln] textarea,:root[data-skin=kiln] select{border-radius:9px;transition:border-color .2s ease,box-shadow .2s ease,background-color .2s ease}
+:root[data-skin=kiln] input:focus,:root[data-skin=kiln] textarea:focus,:root[data-skin=kiln] select:focus{box-shadow:0 0 0 3px rgba(217,119,87,.16)}
+:root[data-skin=kiln] .source-editor:focus{box-shadow:none}
+:root[data-skin=kiln] input[type=checkbox]{accent-color:var(--accent)}
+:root[data-skin=kiln] .status,:root[data-skin=kiln] .job-status{font-family:var(--mono);letter-spacing:.04em;border-radius:6px}
+:root[data-skin=kiln] .job-status.running,:root[data-skin=kiln] .job-status.queued{display:inline-flex;align-items:center;gap:7px;color:var(--ember);background:rgba(217,119,87,.14)}
+:root[data-skin=kiln] .job-status.running:before,:root[data-skin=kiln] .job-status.queued:before{content:'';width:6px;height:6px;border-radius:50%;background:var(--accent);animation:kiln-pulse 1.1s ease-in-out infinite}
+:root[data-skin=kiln] .segmented button{transition:background-color .2s ease,color .2s ease}
+
+/* Editor typography: serif titles and headings, sans body, like the public site */
+:root[data-skin=kiln] .editor-title input{font-family:var(--serif)!important;color:#f1ece4}
+:root[data-skin=kiln] .content-preview{font-family:'PingFang SC','Hiragino Sans GB','Noto Sans SC',system-ui,sans-serif;color:#cfc8be}
+:root[data-skin=kiln] .content-preview h1,:root[data-skin=kiln] .content-preview h2,:root[data-skin=kiln] .content-preview h3{font-family:var(--serif);font-weight:500;color:#f1ece4}
+:root[data-skin=kiln] .content-preview a{color:var(--accent-soft)}
+:root[data-skin=kiln] .content-preview code{background:rgba(217,119,87,.12);color:var(--ember);border-radius:5px}
+:root[data-skin=kiln] .content-preview pre{background:#0e0c0b;border:1px solid var(--border)}
+:root[data-skin=kiln] .content-preview blockquote{border-left-color:var(--accent);background:rgba(217,119,87,.06)}
+:root[data-skin=kiln] .source-editor{caret-color:var(--accent)}
+
+/* Overlays */
+:root[data-skin=kiln] .modal-backdrop{background:rgba(8,7,6,.62);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);animation:kiln-fade .25s ease both}
+:root[data-skin=kiln] .modal{border-radius:16px;border-color:var(--line);animation:kiln-pop .38s var(--spring) both}
+:root[data-skin=kiln] .upload-zone{border-radius:12px;transition:background-color .25s ease,border-color .25s ease}
+:root[data-skin=kiln] .upload-zone:hover{background:rgba(217,119,87,.07);border-color:rgba(217,119,87,.55)}
+:root[data-skin=kiln] .toast{border-radius:12px;border:1px solid var(--line);animation:kiln-toast .5s var(--spring) both}
+:root[data-skin=kiln] .toast.error{animation:kiln-toast .5s var(--spring) both,kiln-shake .5s .1s ease both}
+
+/* Section transitions: every direct child of the workspace rises in turn when a section opens (main is keyed per section). */
+:root[data-skin=kiln] .workspace-main>*{animation:kiln-rise .55s var(--ease) backwards}
+:root[data-skin=kiln] .workspace-main>:nth-child(2){animation-delay:.06s}
+:root[data-skin=kiln] .workspace-main>:nth-child(3){animation-delay:.12s}
+:root[data-skin=kiln] .workspace-main>:nth-child(4){animation-delay:.18s}
+:root[data-skin=kiln] .workspace-main>:nth-child(n+5){animation-delay:.24s}
+:root[data-skin=kiln] .metrics .metric{animation:kiln-rise .55s var(--ease) backwards}
+:root[data-skin=kiln] .metrics .metric:nth-child(2){animation-delay:.08s}
+:root[data-skin=kiln] .metrics .metric:nth-child(3){animation-delay:.16s}
+:root[data-skin=kiln] .metrics .metric:nth-child(4){animation-delay:.24s}
+
+/* Login */
+:root[data-skin=kiln] .login-page{background:radial-gradient(900px 560px at 14% -10%,rgba(217,119,87,.17),transparent 62%),radial-gradient(800px 700px at 100% 110%,rgba(110,130,170,.08),transparent 60%),#12100e;position:relative}
+:root[data-skin=kiln] .login-page:before{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(rgba(240,225,210,.07) 1px,transparent 1.3px) 0 0/24px 24px;-webkit-mask-image:linear-gradient(to bottom,#000,transparent 85%);mask-image:linear-gradient(to bottom,#000,transparent 85%)}
+:root[data-skin=kiln] .login-stack{display:flex;flex-direction:column;align-items:center;width:420px;max-width:100%;position:relative}
+:root[data-skin=kiln] .login-card{width:100%;background:rgba(29,26,22,.86);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-color:var(--line);border-radius:18px;animation:kiln-rise .7s var(--ease) backwards}
+:root[data-skin=kiln] .login-card h1{font-size:28px}
+:root[data-skin=kiln] .login-back:hover{color:var(--accent-soft)}
+
+@keyframes kiln-rise{from{opacity:0;transform:translateY(16px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes kiln-fade{from{opacity:0}to{opacity:1}}
+@keyframes kiln-pop{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes kiln-toast{from{opacity:0;transform:translateY(18px) scale(.94)}to{opacity:1;transform:none}}
+@keyframes kiln-shake{0%,100%{translate:0}20%{translate:-6px}40%{translate:5px}60%{translate:-3px}80%{translate:2px}}
+@keyframes kiln-beat{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(1.5)}}
+@keyframes kiln-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.7)}}
+
+@media(max-width:767px){
+ :root[data-skin=kiln] .page-heading h1{font-size:26px}
+ :root[data-skin=kiln] .metric strong{font-size:29px}
+ :root[data-skin=kiln] .login-card{padding:30px 26px}
+ :root[data-skin=kiln] .camp-login{height:76px;gap:30px}
+}
+@media(prefers-reduced-motion:reduce){
+ :root[data-skin=kiln] *,:root[data-skin=kiln] *:before,:root[data-skin=kiln] *:after{animation:none!important;transition:none!important}
+}
