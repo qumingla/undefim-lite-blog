@@ -10,6 +10,10 @@ export BLOG_REPO_DIR=$repo COMPOSE_PROJECT_NAME=$project
 export BLOG_IMAGE=${QA_BLOG_IMAGE:-undefim-blog:ci} UPDATER_IMAGE=${QA_UPDATER_IMAGE:-undefim-blog-updater:ci}
 compose() { docker compose --project-directory "$repo" -f "$repo/compose.yaml" -f "$temp/override.yaml" -p "$project" "$@"; }
 cleanup() {
+ result=$?
+ if [ "$result" -ne 0 ]; then
+  compose logs --tail 40 updater blog >&2 || true
+ fi
  compose down --timeout 15 >/dev/null 2>&1 || true
  # The updater aligns only this disposable clone's UID with the blog UID.
  docker run --rm --user 0 --entrypoint sh -v "$temp:/qa" "$BLOG_IMAGE" -c 'rm -rf /qa/source' >/dev/null 2>&1 || true
@@ -26,6 +30,7 @@ check_online() {
  compose exec -T blog node --input-type=module -e 'import {createSystemUpdate} from "./server/system-update.mjs";const s=await createSystemUpdate("/app/data").status();if(!s.online||s.config.mode!=="manual")process.exit(1);console.log("执行器在线，默认手动，来源："+s.source.repository);'
 }
 check_online
+test "$(docker inspect --format '{{.Config.Image}}' "$(compose ps -q blog)")" = "$BLOG_IMAGE"
 # A second process must not become a second updater, even in a new PID namespace.
 if compose exec -T --user 1000:1000 updater node --input-type=module -e 'import {acquireWorkerLock} from "./scripts/update-worker.mjs";const release=await acquireWorkerLock(process.cwd());await release();' >/dev/null 2>&1; then
  echo 'Lock incorrectly allowed a second worker'; exit 1
@@ -62,12 +67,18 @@ done
 exec /usr/bin/git "$@"
 GIT
 mv /usr/local/bin/docker /usr/local/bin/docker-test-real
+printf 'services:\n  blog:\n    ports: !reset []\n' > /tmp/blog-qa-override.yaml
 cat > /usr/local/bin/docker <<'DOCKER'
-#!/bin/sh
-for arg; do
- if [ "$arg" = up ] && [ -f /tmp/blog-qa-fail-start ]; then rm /tmp/blog-qa-fail-start; exit 1; fi
-done
-exec /usr/local/bin/docker-test-real "$@"
+#!/usr/local/bin/node
+const fs=require('fs'),{spawnSync}=require('child_process');
+const args=process.argv.slice(2);
+if(args[0]==='compose'){
+ const command=args.findIndex(arg=>['config','ps','build','exec','stop','up'].includes(arg));
+ if(command>=0)args.splice(command,0,'-f','/tmp/blog-qa-override.yaml');
+}
+if(args.includes('up')&&fs.existsSync('/tmp/blog-qa-fail-start')){fs.unlinkSync('/tmp/blog-qa-fail-start');process.exit(1)}
+const result=spawnSync('/usr/local/bin/docker-test-real',args,{stdio:'inherit'});
+process.exit(result.status??1);
 DOCKER
 chmod 755 /usr/local/bin/git /usr/local/bin/docker
 touch /tmp/blog-qa-fail-start
@@ -90,9 +101,11 @@ wait_job() {
 }
 request
 wait_job failed
+test "$(docker inspect --format '{{.Config.Image}}' "$(compose ps -q blog)")" = "$BLOG_IMAGE"
 compose exec -T -e CONTAINER_SMOKE_TEST=true -e EXPECTED_REVISION="$EXPECTED_REVISION" blog node scripts/verify-container.mjs
 request
 wait_job success
+test "$(docker inspect --format '{{.Config.Image}}' "$(compose ps -q blog)")" = "$BLOG_IMAGE"
 compose exec -T blog node -e 'require("fs").unlinkSync("/app/data/.container-smoke-release")'
 compose exec -T -e CONTAINER_SMOKE_TEST=true -e EXPECTED_REVISION="$target" blog node scripts/verify-container.mjs
 # Successful updates exit and restart the worker so mounted new code is loaded.
