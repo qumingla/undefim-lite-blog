@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {defaultLicense} from './license.mjs';
+import {defaultSiteTheme} from './themes.mjs';
 
 export const dataDir = path.resolve(process.env.DATA_DIR || './data');
 mkdirSync(dataDir, { recursive: true, mode: 0o700 });
@@ -37,7 +38,7 @@ export const defaultSettings = {
  title: "undefim'blog", description: '技术随笔与实践记录，分享网络技术、服务器部署和生活点滴。',
  author: 'undefim', bio: 'Crafting my own path, forever undefined!', location: '中国 · 浙江',
  avatar: '/upload/b2cc1237-c3cf-44ef-a6b9-a83528b74f9f.png', logo: '/upload/IMG_3447.JPG',
- background: '/assets/background.webp', accent: '#5d93db', cardOpacity: 0.78,
+ background: '/assets/background.webp', accent: '#5d93db', cardOpacity: 0.78, siteTheme: defaultSiteTheme,
  announcement: '欢迎来访我的个人博客。\nWelcome to visit my personal blog.', email: 'undefim@linux.do',
  github: 'https://github.com/qumingla', qq: '3068768267', startDate: '2023-04-01',
  navigation: [{label:'首页',href:'/'},{label:'动态',href:'/categories/ri-chang'},{label:'友链',href:'/you-lian'},{label:'关于',href:'/about'}],

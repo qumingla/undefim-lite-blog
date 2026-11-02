@@ -6,7 +6,7 @@
 
 | 要改什么 | 必读源码 | 常见修改点 | 必须验证 | 同步文档 |
 | --- | --- | --- | --- | --- |
-| 首页/主题/响应式 | Site.astro、site.css、PostCard/Listing、site.ts、background.ts | `src/layouts`、`components`、`styles` | 完整三栏/两栏/单栏、明暗遮罩、字体、动态暂停/减少动态、焦点、长内容无页面溢出 | ARCHITECTURE、CHANGELOG |
+| 首页/主题/响应式 | Site.astro、site.css、kiln.css、themes.mjs、PostCard/Listing、Mascot、site.ts、kiln.ts、background.ts | `src/layouts`、`components`、`styles`；新主题样式限定 `data-skin` | 每个主题都检查完整三栏/两栏/单栏、明暗遮罩、字体、动态暂停/减少动态、焦点、长内容无页面溢出 | ARCHITECTURE、CHANGELOG |
 | 文章正文/代码/公式 | server/markdown.mjs、src/lib/content.mjs、通配页面、前后台 CSS | 渲染器、清洗白名单、正文样式、后台预览 | 预览与发布一致，HTML/XSS、公式/代码/表格/图片 | DATA-MODEL、必要时 API、CHANGELOG |
 | 许可协议/版权区域 | server/license.mjs、index.mjs docSchema、db.mjs、markdown.mjs、admin Editor、Copyright.astro | 默认值、预设、每篇字段、导入导出与历史恢复 | 旧内容默认、自定义/空链接/隐藏、草稿隔离、URL 安全、多宽度 | API、DATA-MODEL、ARCHITECTURE、CHANGELOG |
 | 新增文章字段 | db.mjs、index.mjs docSchema、admin Editor、content.mjs、页面、导入导出 | 前后端 schema/默认值、历史恢复、公开快照、导入导出 | 旧数据兼容，新增/编辑/发布/版本恢复，私密隔离 | API、DATA-MODEL、CHANGELOG |

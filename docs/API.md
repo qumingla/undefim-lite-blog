@@ -127,7 +127,7 @@ path 必须以 `/` 开始，不可为根；不含 query/hash、反斜线、控�
 | POST | `/api/backup` | 无正文 | `{name:"日期-UUID.zip"}` |
 | GET | `/api/backups/:name` | 合法 ZIP 基础文件名 | ZIP 下载；需要登录 |
 
-设置键：title、description、author、bio、location、announcement、email、github、qq、startDate、umamiWebsiteId（字符串 <=3000）；avatar/logo/background（URL）；accent（六位十六进制色）；cardOpacity（0.5–1）；importAutoPublish（boolean）；navigation、categories、tags、links；assetMap（迁移资源映射，目前缺少专门结构校验，不能存放秘密）。只接收 defaultSettings 中的键，其他键被忽略；公开构建导出这些默认键，不应把 Token 加入其中。
+设置键：title、description、author、bio、location、announcement、email、github、qq、startDate、umamiWebsiteId（字符串 <=3000）；avatar/logo/background（URL）；accent（六位十六进制色）；cardOpacity（0.5–1）；siteTheme（`dream` 或 `kiln`，登记于 `server/themes.mjs`，其他值 400“前台主题无效”；旧数据缺省为 `dream`）；importAutoPublish（boolean）；navigation、categories、tags、links；assetMap（迁移资源映射，目前缺少专门结构校验，不能存放秘密）。只接收 defaultSettings 中的键，其他键被忽略；公开构建导出这些默认键，不应把 Token 加入其中。
 
 - navigation：最多 20 个 `{label<=40,href:URL}`。
 - categories/tags：各最多 1000 个 `{id?,name,slug,description?,color?,children?,hidden?}`；name 1–100，slug 1–150 且只含 Unicode 字母/数字/点/下划线/连字符，同组 slug 不重复，description <=2000，children 为字符串数组。

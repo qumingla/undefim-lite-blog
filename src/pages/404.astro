@@ -1,4 +1,4 @@
 ---
-import Site from '../layouts/Site.astro';
+import Site from '../layouts/Site.astro';import Mascot from '../components/Mascot.astro';import {config} from '../lib/content.mjs';
 ---
-<Site title="页面不存在"><section class="card empty-state"><h1>页面不存在</h1><p>这个地址还没有公开内容。</p><a href="/">返回首页</a></section></Site>
+<Site title="页面不存在"><section class="card empty-state">{config.siteTheme==='kiln'&&<div class="lost-mascot"><Mascot size={5} label="迷路的吉祥物"/></div>}<h1>页面不存在</h1><p>这个地址还没有公开内容。</p><a href="/">返回首页</a></section></Site>

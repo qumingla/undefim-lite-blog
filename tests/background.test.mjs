@@ -40,3 +40,13 @@ test('减少动态模式初始不启动帧循环，高清画布受限并随手�
  b.win.innerWidth=390;b.win.innerHeight=844;b.win.dispatchEvent(new Event('resize'));
  assert.equal(b.canvas.width,780);assert.equal(b.canvas.height,1688);assert.equal(b.frames.size,0);
 });
+
+test('窑火主题的余烬场景沿用同一生命周期，未知主题回退到 Dream',t=>{
+ const b=browser(t);const stop=startBackground(b.canvas,'kiln');b.setCleanup(stop);
+ b.tick(100);b.tick(200);assert.equal(b.canvas.dataset.motion,'running');assert.equal(b.frames.size,1);
+ b.doc.hidden=true;b.doc.dispatchEvent(new Event('visibilitychange'));assert.equal(b.frames.size,0);
+ b.doc.hidden=false;b.doc.dispatchEvent(new Event('visibilitychange'));assert.equal(b.frames.size,1);
+ b.motion.matches=true;b.motion.dispatchEvent(new Event('change'));assert.equal(b.frames.size,0);assert.equal(b.canvas.dataset.motion,'reduced');
+ stop();
+ const fallback=startBackground(b.canvas,'unknown');b.setCleanup(fallback);b.motion.matches=false;b.motion.dispatchEvent(new Event('change'));b.tick(300);assert.equal(b.canvas.dataset.motion,'running');
+});
