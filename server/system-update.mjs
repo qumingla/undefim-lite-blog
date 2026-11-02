@@ -29,8 +29,14 @@ export function createSystemUpdate(dataDir,{clock=Date.now}={}){
  const online=state=>Boolean(state?.heartbeatAt&&clock()-Date.parse(state.heartbeatAt)>=0&&clock()-Date.parse(state.heartbeatAt)<45000);
  return {
   async status(){
-   const [config,worker,pending]=await Promise.all([readUpdateFile(file('config'),defaultUpdateConfig),readUpdateFile(file('status')),readUpdateFile(file('request'))]);
-   return {config:validateUpdateConfig(config),source:updateSource(worker),online:online(worker),worker,pending};
+   const [config,worker,pending,checkRequest]=await Promise.all([readUpdateFile(file('config'),defaultUpdateConfig),readUpdateFile(file('status')),readUpdateFile(file('request')),readUpdateFile(file('check-request'))]);
+   return {config:validateUpdateConfig(config),source:updateSource(worker),online:online(worker),check:worker?.check||null,checking:Boolean(checkRequest),worker,pending};
+  },
+  async requestCheck(){
+   const state=await this.status();
+   if(!state.online)throw updateError(503,'更新执行器未连接，暂时无法检查更新');
+   await writeUpdateFile(file('check-request'),{id:randomUUID(),requestedAt:new Date(clock()).toISOString()});
+   return {checking:true};
   },
   async configure(input){const config=validateUpdateConfig(input);await writeUpdateFile(file('config'),config);return config},
   async request(){

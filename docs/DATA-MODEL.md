@@ -19,7 +19,8 @@ data/                         DATA_DIR，可配置；不是网站公开根目录
   system-update/              私有更新控制目录，不进入公开快照/内容导出
     config.json               manual/auto 与 intervalHours，缺省 manual/24
     request.json              唯一待处理/运行中请求，完成后移除
-    status.json               执行器心跳、来源、最近检查/任务/阶段/回退结果
+    check-request.json        可覆盖的只读重新检查请求，执行器检查后移除
+    status.json               执行器心跳、来源、版本检查结果、最近任务/阶段/回退结果
 ```
 
 `dist/admin` 是后台构建产物；`dist/site` 是本地构建或没有 current 时的回退目录。不要直接编辑产物，它们会被重建覆盖。移动运行目录或容器挂载路径后应检查 `current` 链接是否仍有效。
