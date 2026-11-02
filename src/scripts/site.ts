@@ -1,12 +1,13 @@
-import {startBackground} from './background';
+import {startBackground} from './background';import {startKiln} from './kiln';
 const $ = <T extends Element=HTMLElement>(selector:string)=>document.querySelector<T>(selector);
+const skin=document.documentElement.dataset.skin||'dream',darkOnly=document.documentElement.hasAttribute('data-dark-only');
 const themeToggle=$<HTMLButtonElement>('.theme-toggle');
 function updateThemeButton(){themeToggle?.setAttribute('aria-pressed',String(document.documentElement.dataset.theme==='dark'))}
 updateThemeButton();
 let userTheme=false;try{userTheme=['dark','light'].includes(localStorage.getItem('blog-theme')||'')}catch{}
 themeToggle?.addEventListener('click',()=>{const theme=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=theme;userTheme=true;updateThemeButton();try{localStorage.setItem('blog-theme',theme)}catch{}});
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change',e=>{if(!userTheme){document.documentElement.dataset.theme=e.matches?'dark':'light';updateThemeButton()}});
-const background=$<HTMLCanvasElement>('.background-stars');if(background)startBackground(background);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',e=>{if(!userTheme&&!darkOnly){document.documentElement.dataset.theme=e.matches?'dark':'light';updateThemeButton()}});
+const background=$<HTMLCanvasElement>('.background-stars');if(background)startBackground(background,skin);
 $('.mobile-menu')?.addEventListener('click',()=>{const drawer=$<HTMLElement>('.mobile-drawer')!;drawer.hidden=!drawer.hidden;$('.mobile-menu')?.setAttribute('aria-expanded',String(!drawer.hidden))});
 $('.back-top')?.addEventListener('click',()=>window.scrollTo({top:0,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'}));
 const days=$('#site-days');if(days)days.textContent=String(Math.max(0,Math.floor((Date.now()-new Date((days as HTMLElement).dataset.start!).getTime())/86400000)));
@@ -25,3 +26,4 @@ async function comments(){if(!id||!$('.comment-list'))return;try{const rows=awai
 if(id){comments();fetch(`/api/public/documents/${id}/visit`,{method:'POST'}).then(r=>r.json()).then(s=>{if($('.visit-count'))$('.visit-count')!.textContent=s.visits}).catch(()=>{});$('.like-button')?.addEventListener('click',async()=>{try{const r=await fetch(`/api/public/documents/${id}/like`,{method:'POST'});const s=await r.json();if(r.ok){$('.like-count')!.textContent=s.likes;($('.like-button') as HTMLButtonElement).disabled=true}}catch{}})}
 $('.comment-form')?.addEventListener('submit',async e=>{e.preventDefault();const form=e.target as HTMLFormElement;const button=form.querySelector('button')!;button.disabled=true;try{const values=Object.fromEntries(new FormData(form));const r=await fetch(`/api/public/documents/${id}/comments`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(values)});const result=await r.json();if(!r.ok)throw new Error(result.message||'提交失败');$('.form-status')!.textContent='评论已提交，审核后显示。';form.reset()}catch(e){$('.form-status')!.textContent=(e as Error).message}finally{button.disabled=false}});
 const headings=document.querySelectorAll('.prose h1,.prose h2,.prose h3,.prose h4,.prose h5,.prose h6');if('IntersectionObserver' in window){const observer=new IntersectionObserver(entries=>{for(const entry of entries)if(entry.isIntersecting){document.querySelectorAll('.toc a').forEach(a=>a.classList.toggle('current',a.getAttribute('href')===`#${entry.target.id}`))}},{rootMargin:'-70px 0px -70% 0px'});headings.forEach(h=>observer.observe(h))}
+if(skin==='kiln')startKiln();

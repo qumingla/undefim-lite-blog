@@ -1,0 +1,6 @@
+---
+// Kiln profile scene: a wandering mascot and a pixel campfire. data-reserve keeps the walker clear of the fire.
+import Mascot from './Mascot.astro';
+const {class:extra}=Astro.props;
+---
+<div class:list={['profile-stage',extra]} data-reserve="34"><Mascot walker/><svg class="kiln-fire" width="30" height="36" viewBox="0 0 10 12" shape-rendering="crispEdges" aria-hidden="true"><g class="fire-outer"><rect x="3" y="2" width="4" height="8"/><rect x="2" y="5" width="6" height="5"/><rect x="4" y="0" width="2" height="2"/></g><g class="fire-inner"><rect x="4" y="5" width="2" height="5"/><rect x="3" y="7" width="4" height="3"/></g><rect class="fire-log" x="0" y="10" width="10" height="2"/></svg></div>
