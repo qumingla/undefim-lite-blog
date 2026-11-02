@@ -8,8 +8,8 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import http from 'node:http';
 import {createSystemUpdate,defaultUpdateConfig,validateUpdateConfig,writeUpdateFile,readUpdateFile,publishUpdateRequest} from '../server/system-update.mjs';
-import {workerOptions,workerTick,nextUpdateAt,executeUpdate,waitForHealth} from '../scripts/update-worker.mjs';
-import {defaultUpdateSource,canonicalUpdateRepository,matchesUpdateRemote} from '../server/update-source.mjs';
+import {workerOptions,workerTick,nextUpdateAt,executeUpdate,waitForHealth,acquireWorkerLock} from '../scripts/update-worker.mjs';
+import {defaultUpdateSource,matchesUpdateRemote} from '../server/update-source.mjs';
 
 const root=await fs.mkdtemp(path.join(os.tmpdir(),'blog-updater-test-'));
 process.env.DATA_DIR=path.join(root,'api-data');process.env.COOKIE_SECURE='false';
@@ -40,21 +40,14 @@ test('无执行器时自动预设开源仓库和 main，来源配置不冒充在
  const initial=await service.status();
  assert.deepEqual(initial.source,defaultUpdateSource);assert.equal(initial.online,false);assert.equal(initial.worker,null);assert.equal(initial.config.mode,'manual');
  assert.deepEqual(await fs.readdir(data),[]);
- await writeUpdateFile(path.join(data,'system-update/status.json'),{repository:'qumingla/undefim-lite-blog',branch:'main',heartbeatAt:new Date(at-60000).toISOString()});
- const legacy=await service.status();assert.deepEqual(legacy.source,defaultUpdateSource);assert.equal(legacy.online,false);
  await writeUpdateFile(path.join(data,'system-update/status.json'),{repository:'example/custom-blog',branch:'stable',heartbeatAt:new Date(at).toISOString()});
  assert.deepEqual((await service.status()).source,{repository:'example/custom-blog',branch:'stable',url:'https://github.com/example/custom-blog'});
 });
 
-test('默认新旧仓库地址兼容，但不接受伪造来源或带凭据地址',async()=>{
+test('只接受配置的规范 GitHub 来源，不再兼容旧地址',()=>{
  assert.equal(workerOptions({UPDATE_PROJECT:'blog'}).repository,defaultUpdateSource.repository);
- assert.equal(workerOptions({UPDATE_PROJECT:'blog',UPDATE_REPOSITORY:'qumingla/undefim-lite-blog'}).repository,defaultUpdateSource.repository);
- assert.equal(canonicalUpdateRepository('example/blog'),'example/blog');
- for(const name of ['undefim/undefim-lite-blog','qumingla/undefim-lite-blog'])for(const suffix of ['', '.git'])assert.equal(matchesUpdateRemote(`https://github.com/${name}${suffix}`,defaultUpdateSource.repository),true);
- for(const remote of ['http://github.com/undefim/undefim-lite-blog.git','https://github.com/other/undefim-lite-blog.git','https://github.com/undefim/undefim-lite-blog-evil.git','https://github.com.evil.example/undefim/undefim-lite-blog.git','https://token@github.com/undefim/undefim-lite-blog.git','https://github.com/undefim/undefim-lite-blog.git?token=anything','git@github.com:undefim/undefim-lite-blog.git'])assert.equal(matchesUpdateRemote(remote,defaultUpdateSource.repository),false,remote);
- const result=await scenario({repository:defaultUpdateSource.repository,remote:'https://github.com/qumingla/undefim-lite-blog.git'});
- assert.equal(result.result.status,'success');
- assert.ok(result.calls.some(call=>call.includes('fetch --no-tags https://github.com/undefim/undefim-lite-blog.git ')));
+ for(const suffix of ['', '.git'])assert.equal(matchesUpdateRemote(`https://github.com/undefim/undefim-lite-blog${suffix}`,defaultUpdateSource.repository),true);
+ for(const remote of ['https://github.com/qumingla/undefim-lite-blog.git','http://github.com/undefim/undefim-lite-blog.git','https://github.com/other/undefim-lite-blog.git','https://github.com/undefim/undefim-lite-blog-evil.git','https://github.com.evil.example/undefim/undefim-lite-blog.git','https://token@github.com/undefim/undefim-lite-blog.git','https://github.com/undefim/undefim-lite-blog.git?token=anything','git@github.com:undefim/undefim-lite-blog.git'])assert.equal(matchesUpdateRemote(remote,defaultUpdateSource.repository),false,remote);
 });
 
 test('API 更新入口鉴权、CSRF、Origin、参数与维护写屏障保持有效',async()=>{
@@ -105,12 +98,15 @@ test('定时调度跨重启保存间隔，失败暂停，手动恢复且请求�
  await workerTick(options,state,{execute,now:Date.now()});assert.equal(executions,1);
 });
 
-test('执行器配置只接受固定 GitHub 来源、本机健康地址和合法分支',()=>{
+test('执行器配置只接受固定 GitHub 来源、本机或限定 Compose 健康地址和合法分支',()=>{
  assert.equal(workerOptions({UPDATE_PROJECT:'blog'}).branch,'main');
+ assert.equal(workerOptions({UPDATE_PROJECT:'blog',UPDATE_RUNTIME:'compose',UPDATE_HEALTH_URL:'http://blog:4322/api/health'}).healthUrl,'http://blog:4322/api/health');
+ assert.throws(()=>workerOptions({UPDATE_PROJECT:'blog',UPDATE_HEALTH_URL:'http://blog:4322/api/health'}));
+ assert.throws(()=>workerOptions({UPDATE_PROJECT:'blog',UPDATE_RUNTIME:'compose',UPDATE_HEALTH_URL:'http://other:4322/api/health'}));
  for(const env of [{UPDATE_PROJECT:'blog',UPDATE_REPOSITORY:'https://evil.example/repo'},{UPDATE_PROJECT:'blog',UPDATE_BRANCH:'--upload-pack=anything'},{UPDATE_PROJECT:'blog',UPDATE_BRANCH:'a/../b'},{UPDATE_PROJECT:'blog',UPDATE_HEALTH_URL:'https://evil.example/api/health'},{}])assert.throws(()=>workerOptions(env));
 });
 
-async function scenario({failAt,dirty=false,diverged=false,same=false,stale=false,contractChanged=false,publishDuringBuild=false,rollbackFails=false,repository='example/blog',remote=`https://github.com/${repository}.git`}={}){
+async function scenario({withUpdater=false,extraService=false,runtimeChanged=false,failAt,dirty=false,diverged=false,same=false,stale=false,contractChanged=false,publishDuringBuild=false,rollbackFails=false,repository='example/blog',remote=`https://github.com/${repository}.git`}={}){
  const repoDir=await fresh(),dataDir=path.join(repoDir,'data');
  await fs.mkdir(path.join(dataDir,'backups'),{recursive:true});
  const from='a'.repeat(40),to=same?from:'b'.repeat(40),oldImage='sha256:'+'c'.repeat(64),backup='2026-11-02-12345678-1234-1234-1234-123456789abc.zip';
@@ -118,9 +114,12 @@ async function scenario({failAt,dirty=false,diverged=false,same=false,stale=fals
  let head=from,stopped=false,newService=false;
  const calls=[],reports=[];
  const config={services:{blog:{image:'undefim-blog:local',volumes:[{type:'bind',source:dataDir,target:'/app/data'}],ports:[{target:4322,published:'4322'}]}}};
+ if(withUpdater)config.services.updater={image:'undefim-blog-updater:local'};
+ if(extraService)config.services.other={image:'unexpected'};
  const run=async(program,args)=>{
   const command=args.join(' ');calls.push(`${program} ${command}`);
   if(program==='git'){
+   if(command.includes('diff --name-only'))return runtimeChanged?'Dockerfile.updater':'';
    if(command.includes('status --porcelain'))return dirty?' M server/index.mjs':'';
    if(command.includes('rev-parse --show-toplevel'))return repoDir;
    if(command.includes('branch --show-current'))return 'main';
@@ -148,6 +147,22 @@ async function scenario({failAt,dirty=false,diverged=false,same=false,stale=fals
  const result=await executeUpdate({repoDir,dataDir,repository,branch:'main',project:'blog',healthUrl:'http://127.0.0.1:4322/api/health'},{run,health,wait,report:async change=>reports.push(change)});
  return {result,calls,reports,head,from,to,stopped,healthChecks,dataDir};
 }
+
+test('双容器允许仅更新 blog，额外服务和执行器运行环境变化均拒绝切换',async()=>{
+ const result=await scenario({withUpdater:true});assert.equal(result.result.status,'success');
+ assert.ok(result.calls.some(c=>c.includes('up -d --no-build --force-recreate --no-deps blog')));
+ assert.ok(!result.calls.some(c=>c.includes('stop updater')||c.includes('down')));
+ for(const opts of [{extraService:true},{runtimeChanged:true}]){
+  const rejected=await scenario(opts);assert.equal(rejected.result.status,'failed');assert.ok(!rejected.calls.some(c=>c.includes('stop blog')));
+ }
+});
+
+test('Linux 内核锁互斥，释放后可重新获取，不依赖遗留 PID',{skip:process.platform!=='linux'},async()=>{
+ const repo=await fresh();await fs.mkdir(path.join(repo,'.git'));await fs.writeFile(path.join(repo,'.git/blog-update-worker.lock'),'1');
+ const release=await acquireWorkerLock(repo);
+ try{await assert.rejects(()=>acquireWorkerLock(repo))}finally{await release()}
+ const again=await acquireWorkerLock(repo);await again();
+});
 
 test('无更新不备份或重启，运行版本落后时仍修复部署',async()=>{
  const {result,calls}=await scenario({same:true});assert.equal(result.status,'unchanged');assert.ok(!calls.some(c=>c.startsWith('docker')));

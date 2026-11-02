@@ -1,12 +1,12 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import {execFile} from 'node:child_process';
+import {execFile,spawn} from 'node:child_process';
 import {promisify} from 'node:util';
 import {fileURLToPath} from 'node:url';
 import {randomUUID} from 'node:crypto';
 import {defaultUpdateConfig,readUpdateFile,writeUpdateFile,publishUpdateRequest,validateUpdateConfig} from '../server/system-update.mjs';
-import {defaultUpdateSource,canonicalUpdateRepository,matchesUpdateRemote} from '../server/update-source.mjs';
+import {defaultUpdateSource,matchesUpdateRemote} from '../server/update-source.mjs';
 
 const exec=promisify(execFile);
 const timestamp=()=>new Date().toISOString();
@@ -17,14 +17,15 @@ export async function command(program,args,{cwd,timeout=120000}={}){
  catch{throw new Error(`${program==='git'?'Git':'Docker'} 操作失败或超时，请在宿主机检查仓库、网络与服务状态`)}
 }
 export function workerOptions(env=process.env){
- const repository=canonicalUpdateRepository(env.UPDATE_REPOSITORY||defaultUpdateSource.repository),branch=env.UPDATE_BRANCH||defaultUpdateSource.branch,project=env.UPDATE_PROJECT;
+ const repository=env.UPDATE_REPOSITORY||defaultUpdateSource.repository,branch=env.UPDATE_BRANCH||defaultUpdateSource.branch,project=env.UPDATE_PROJECT;
  requireValue(/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(repository)&&!repository.includes('..'),'UPDATE_REPOSITORY 必须是 GitHub owner/repo');
  requireValue(/^[a-zA-Z0-9][a-zA-Z0-9._/-]*$/.test(branch)&&!branch.includes('..')&&!branch.includes('//')&&!branch.endsWith('/')&&!branch.endsWith('.lock'),'UPDATE_BRANCH 无效');
  requireValue(project&&/^[a-z0-9][a-z0-9_-]*$/.test(project),'必须设置现有 Compose 项目的 UPDATE_PROJECT');
  const repoDir=path.resolve(env.UPDATE_REPO_DIR||process.cwd()),dataDir=path.resolve(env.UPDATE_DATA_DIR||path.join(repoDir,'data'));
  const healthUrl=env.UPDATE_HEALTH_URL||'http://127.0.0.1:4322/api/health';
  const url=new URL(healthUrl);
- requireValue(url.protocol==='http:'&&['127.0.0.1','[::1]','localhost'].includes(url.hostname)&&!url.username&&!url.password&&url.pathname==='/api/health','健康检查必须使用本机 /api/health');
+ const container=env.UPDATE_RUNTIME==='compose';
+ requireValue(url.protocol==='http:'&&['127.0.0.1','[::1]','localhost',...(container?['blog']:[])].includes(url.hostname)&&!url.username&&!url.password&&url.pathname==='/api/health','健康检查必须使用本机或 Compose 内 blog 的 /api/health');
  return {repoDir,dataDir,repository,branch,project,healthUrl};
 }
 export async function readHealth(url){try{const response=await fetch(url,{signal:AbortSignal.timeout(3000),redirect:'error'});return response.ok?await response.json():null}catch{return null}}
@@ -34,11 +35,12 @@ export async function waitForHealth(health,predicate,{attempts=180,delay=3000}={
 }
 function composeContract(config,dataDir){
  const service=config.services?.blog;
- requireValue(service&&Object.keys(config.services).length===1,'自动更新仅支持单个 blog 写实例的 Compose 配置');
+ requireValue(service&&Object.keys(config.services).every(name=>['blog','updater'].includes(name)), '自动更新仅支持 blog 与独立 updater，禁止额外写实例');
+ requireValue(!service.volumes?.some(v=>v.target==='/var/run/docker.sock'),'博客容器不能挂载 Docker socket');
  requireValue(service.image&&/^[a-zA-Z0-9][a-zA-Z0-9./:_-]*$/.test(service.image),'Compose 必须配置固定 blog 镜像名');
  const mount=service.volumes?.find(v=>v.target==='/app/data');
  requireValue(mount?.type==='bind'&&path.resolve(mount.source)===dataDir&&!mount.read_only,'UPDATE_DATA_DIR 必须匹配 blog 的 /app/data 绑定目录');
- return {image:service.image,volumes:service.volumes,ports:service.ports,user:service.user};
+ return {image:service.image,volumes:service.volumes,ports:service.ports,user:service.user,updater:config.services.updater};
 }
 export async function executeUpdate(options,{run=command,health=()=>readHealth(options.healthUrl),report=async()=>{},wait=waitForHealth}={}){
  const {repoDir,dataDir,branch,repository,project}=options;
@@ -68,6 +70,8 @@ export async function executeUpdate(options,{run=command,health=()=>readHealth(o
   const marker=await fs.readFile(path.join(dataDir,'application-revision'),'utf8').catch(e=>{if(e.code==='ENOENT')return null;throw e});
   if(from===to&&currentHealth?.ok&&currentHealth.revision===from&&marker===from)return {status:'unchanged',from,to,message:'当前运行程序与静态版本均为跟踪分支的最新版本。'};
   try{await git('merge-base','--is-ancestor',from,to)}catch{throw new Error('本地与远端分支发生分叉或远端回退，禁止自动覆盖')}
+  // Runtime tooling cannot safely replace the container that is supervising this job.
+  requireValue(!(await git('diff','--name-only',from,to,'--','Dockerfile.updater','scripts/updater-entrypoint.sh')),'执行器基础运行环境发生变化，请维护者运行 docker compose up -d --build 更新全部服务');
   contract=composeContract(JSON.parse(await compose(liveCompose,'config','--format','json')),dataDir);
   const container=await compose(liveCompose,'ps','-q','blog');
   requireValue(/^[0-9a-f]{12,64}$/.test(container),'未找到唯一的运行中 blog 容器，请核对 UPDATE_PROJECT');
@@ -156,20 +160,25 @@ export async function workerTick(options,state,{execute=executeUpdate,now=Date.n
  }finally{await fs.rm(path.join(directory,'request.json'),{force:true})}
  return state.job.status;
 }
+// flock is owned by the kernel and works across PID namespaces. The helper's
+// stdin closes even if its parent is killed, releasing the lock after a crash.
+export async function acquireWorkerLock(repoDir){
+ const child=spawn('flock',['--exclusive','--nonblock',path.join(repoDir,'.git','blog-update-worker.lock'),process.execPath,'--input-type=module','-e',`process.stdout.write('locked\n');process.stdin.resume();process.stdin.on('end',()=>process.exit(0));`],{stdio:['pipe','pipe','pipe']});
+ let releasing=false,acquired=false;
+ const closed=new Promise(resolve=>child.once('close',code=>{resolve(code);if(acquired&&!releasing)process.exit(1)}));
+ await new Promise((resolve,reject)=>{
+  const timer=setTimeout(()=>{child.kill();reject(new Error('执行器锁获取超时'))},5000);
+  const fail=()=>{clearTimeout(timer);reject(new Error('已有执行器持锁，或系统缺少 flock'))};
+  child.once('error',fail);child.once('exit',fail);
+  child.stdout.once('data',()=>{acquired=true;clearTimeout(timer);child.removeListener('exit',fail);resolve()});
+ });
+ return async()=>{releasing=true;child.stdin.end();await closed};
+}
 export async function runWorker(options){
  const directory=path.join(options.dataDir,'system-update');
  await fs.mkdir(directory,{recursive:true,mode:0o700});
- const lockFile=path.join(options.repoDir,'.git','blog-update-worker.lock');
- // This lock lives outside the container-writable queue and is held for the worker's lifetime.
- let lock;
- try{lock=await fs.open(lockFile,'wx',0o600)}catch(e){
-  if(e.code!=='EEXIST')throw e;
-  const pid=Number(await fs.readFile(lockFile,'utf8'));
-  requireValue(Number.isSafeInteger(pid)&&pid>0,'执行器锁无效，请由维护者检查');
-  try{process.kill(pid,0);throw new Error('已有更新执行器正在运行')}catch(error){if(error.code!=='ESRCH')throw error}
-  await fs.unlink(lockFile);lock=await fs.open(lockFile,'wx',0o600);
- }
- await lock.writeFile(String(process.pid));
+ const releaseLock=await acquireWorkerLock(options.repoDir);
+ try{
  const previous=await readUpdateFile(path.join(directory,'status.json'),{});
  const state={...previous,repository:options.repository,branch:options.branch,scheduleAnchorAt:previous.scheduleAnchorAt||previous.startedAt||timestamp(),startedAt:timestamp(),heartbeatAt:timestamp()};
  if(state.job?.status==='running'){
@@ -193,8 +202,8 @@ export async function runWorker(options){
   clearInterval(timer);process.off('SIGTERM',stop);process.off('SIGINT',stop);
   await writes.catch(()=>{});
   await writeUpdateFile(path.join(directory,'status.json'),{...state,heartbeatAt:null});
-  await lock.close();await fs.unlink(lockFile);
  }
+ }finally{await releaseLock()}
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  try{await runWorker(workerOptions())}catch{console.error('更新执行器启动或运行失败。请检查专用部署目录、环境配置、文件权限及执行器锁；未输出原始命令日志。');process.exitCode=1}

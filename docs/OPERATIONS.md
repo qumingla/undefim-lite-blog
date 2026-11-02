@@ -41,48 +41,63 @@ DATA_DIR=./data-dev node scripts/import-halo.mjs /absolute/path/to/halo-backup.z
 
 ## 源码仓库
 
-仓库：https://github.com/undefim/undefim-lite-blog ，默认分支 `main`；原 `qumingla/undefim-lite-blog` 为已核实的旧地址。2026-10-02 用当前独立博客源码完整替换旧版本目录，保留 Git 历史用于追溯；旧版本文件不混入当前目录。公开仓库仅含代码、依赖锁文件、公开主题资源、示例和维护文档。`migration/reports/`、`migration/screenshots/` 与原始备份保留在本地，文档中的这些路径是本地证据位置，不保证在克隆后存在。
+仓库：https://github.com/undefim/undefim-lite-blog ，默认分支 `main`。2026-10-02 用当前独立博客源码完整替换旧版本目录，保留 Git 历史用于追溯；旧版本文件不混入当前目录。公开仓库仅含代码、依赖锁文件、公开主题资源、示例和维护文档。`migration/reports/`、`migration/screenshots/` 与原始备份保留在本地，文档中的这些路径是本地证据位置，不保证在克隆后存在。
 
 推送前检查 `git diff --cached --stat` 和待提交文件；不能使用 `git add -f` 绕过私有数据忽略规则。更新 GitHub 本身不会更新正式服务器；可按下文手动部署，或安装“后台 GitHub 更新”执行器后由后台手动/定时触发。
 
 ## 后台 GitHub 更新
 
-后台“系统更新”管理的是**程序部署**，与“发布站点”和“导入后自动发布”不同。默认仅手动；可选择每 1/6/12/24/168 小时检查。API 只写私有文件请求，由 Linux 宿主机上的唯一执行器读取；没有向容器挂载 Docker socket，也不从 HTTP 请求接收仓库、分支、Shell 或凭据。来源默认 `undefim/undefim-lite-blog/main`，无需填写仓库和分支；未启动执行器时后台也直接显示此默认来源，不再显示“等待宿主机配置”。来源由宿主机环境固定，显式自定义值仍优先于默认值；来源已配置不等于执行器已连接，离线时仍禁止更新。
+后台“系统更新”管理的是**程序部署**，与“发布站点”和“导入后自动发布”不同。默认仅手动；可选择每 1/6/12/24/168 小时检查。API 只写私有文件请求，由同一 Compose 项目的唯一 `updater` 容器读取；只有 updater 挂载 Docker socket，blog 不持有 Docker 控制权限，也不从 HTTP 请求接收仓库、分支、Shell 或凭据。来源默认 `undefim/undefim-lite-blog/main`，无需填写仓库和分支；未启动执行器时后台也直接显示此默认来源，不再显示“等待宿主机配置”。来源由宿主机环境固定，显式自定义值仍优先于默认值；来源已配置不等于执行器已连接，离线时仍禁止更新。
 
-### 首次安装
+### 一次安装（Linux Docker Engine）
 
-此功能首次上线仍需维护者手动部署经过验证的源码与镜像；在尚未包含执行器的旧版本里不能靠按钮安装自身。生产部署操作只在当前授权范围内执行。
-
-1. 准备**专用、干净、普通克隆（不是 Git worktree）**的部署目录，origin 为无内嵌凭据的 `https://github.com/<owner>/<repo>.git`，本地分支与 UPDATE_BRANCH 相同。现有源码若为上传文件且没有 `.git`，先由维护者建立匹配仓库，保留正式 `.env`、data 和镜像，不能用空数据覆盖。不要把开发中的分支作为自动更新部署目录。
-2. 宿主机安装 Git、Node 24 LTS >=24.22.1 <25 和 Docker Compose v2；脚本只用 Node 内置库，不要求宿主机 npm ci。部署服务用户必须能读写仓库和 data，UID/GID 应与容器的数据所有者（默认 1000:1000）兼容。不要对已有正常权限的 data 盲目递归 chmod/chown。
-3. 复制并编辑 [执行器环境模板](../deploy/blog-update-worker.env.example) 到受保护的宿主机环境文件（示例 `/etc/blog-update-worker.env`，服务用户可读，权限 600）。必须填写 **现有** Compose 项目的 UPDATE_PROJECT（用 `docker compose ls` 核对）；目录、data 挂载和本机健康 URL 也必须匹配。不能填新项目名，以免产生第二个写实例。GitHub 私有仓库只使用部署用户既有的 Git 凭据管理，不在 URL、后台设置或文档中放 Token。
-4. 复制并编辑 [systemd 服务模板](../deploy/blog-update-worker.service)：示例 `/srv/blog`、`blogdeploy` 和 `/usr/bin/node` 全部换成实际目录、服务用户和安全 Node 的绝对路径；ReadWritePaths 需包含实际仓库和位于仓库外的数据目录。模板启用 PrivateTmp、ProtectSystem/ProtectHome 等限制，部署目录不能放在被 ProtectHome 阻止访问的位置。服务用户的 Docker 组权限实际上等价于宿主机管理权限，应视作可信部署账号，不能给博客容器同样权限。
-5. 确认来源分支、代码和数据库兼容性已验证，先保持后台“仅手动”。在首次手动部署后安装并启动服务：
+宿主机只需 Docker Engine、Compose v2 与用于取得源码的 Git；Node、Git、Docker CLI、Compose 插件、flock 均在 updater 镜像内，不需要宿主机 Node、npm ci 或 systemd 执行器。使用专用、普通 Git 克隆（不能是开发 worktree），只部署可信 main；origin 必须精确匹配规范仓库 HTTPS 地址，不兼容旧 owner 地址。首次安装仍由维护者执行以下命令，后台按钮不能安装自身：
 
 ```sh
-sudo install -m 644 deploy/blog-update-worker.service /etc/systemd/system/blog-update-worker.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now blog-update-worker.service
-sudo systemctl status blog-update-worker.service
+git clone https://github.com/undefim/undefim-lite-blog.git /srv/blog
+cd /srv/blog
+cp .env.example .env
+# 编辑 .env 中的 SITE_URL、ADMIN_ORIGIN 和原有 Compose 项目名；秘密值只留在此文件。
+chmod 600 .env
+APP_REVISION=$(git rev-parse HEAD) docker compose up -d --build
+docker compose ps
 ```
 
-模板须先按第 4 步修改再 install；不要直接执行未调整的示例。后台显示“执行器已连接”后可提交手动更新。后台每 5 秒刷新状态，执行器每 5 秒查看队列、每 10 秒发心跳；超过 45 秒无心跳时显示离线并拒绝新的手动任务。即使离线仍可保存模式设置，但不会执行更新。
+`.env.example` 预设 COMPOSE_PROJECT_NAME=undefim-blog。已有站点必须用 `docker compose ls` 查到的**原项目名**，不得另起第二个写实例。从其他工作目录使用 `-f` 时须显式设置 `.env` 的 `BLOG_REPO_DIR` 为普通克隆的绝对路径；默认使用执行 Compose 时 shell 的 PWD。该目录在 updater 内保持同一绝对路径，避免 Docker daemon 将容器路径当作宿主机路径而挂错 data。`.env` 和 data 不得从开发或预览包覆盖。
+
+Compose 默认包含 blog 与 updater 两个常驻服务。updater 首次启动会将**专用克隆的源码和 Git 元数据**所有权调整到 1000:1000（不跟随符号链接，排除整个 data 子树），然后以 UID/GID1000 及 Docker socket 的实际组运行；仅在没有 blog.sqlite 的初始化目录上准备 data 顶层，不对已有库或媒体递归 chown/chmod。不要把此配置指向含其他项目的父目录。既有 data 必须已允许博客 UID1000 读写。
+
+blog 等 updater 健康后才启动；updater 的心跳不依赖 blog 运行，因此没有循环依赖。健康检查间隔 10 秒，后台每 5 秒刷新；45 秒无心跳时视为离线。执行器镜像没有对外监听端口；blog 不挂载源码、Git 或 Docker socket。updater 对 Docker 的写权限仍等同于高权限宿主管理，仓库写权限也等同于部署权限，容器化不消除该信任边界。
+
+### 已有 systemd 部署迁移与撤销
+
+先验证新镜像并备份生产环境、最新数据、镜像与静态入口。确认没有 pending/running 更新或维护屏障，再停用旧执行器，不能新旧并行：
+
+```sh
+sudo systemctl disable --now blog-update-worker.service
+# 在原部署目录、原 Compose 项目下执行；保留已有 .env 和 data。
+APP_REVISION=$(git rev-parse HEAD) docker compose up -d --build
+```
+
+核对 updater 容器健康、后台 online=true、来源/运行 revision/静态标记一致、既有内容和 HTTPS 页面正常后，才算迁移完成。失败时先停止 updater，再恢复兼容的旧代码与镜像，并按原方式恢复执行器；保留当前数据库，不能为撤销程序升级覆盖新写入。旧环境文件和 unit 可作为私有回退材料保留，不再由仓库提供安装模板。
+
+停止容器执行器用 `docker compose stop updater`；`restart: always` 在 Docker daemon 重启后可能再次启动被手动停止的容器，需要永久停用时移除 updater 容器并使用单独维护的 blog-only 配置，不能只假设 stop 永久禁用。完整取消此部署则先确认没有在途任务再 `docker compose down`，保留 data 目录。
 
 ### 运行流程与失败边界
 
-- 执行器锁位于 `.git/blog-update-worker.lock`，不在容器可写队列内。第二个执行器拒绝启动；进程已不存在时可回收 PID 锁。只能运行一个 blog 写实例与一个更新执行器；更新期间不要并行手工改部署目录或运行 Compose。
-- 本地必须无已跟踪修改和未跟踪文件；只允许固定 origin/branch 的快进更新。默认来源同时兼容新旧两个已知 GitHub HTTPS origin；旧环境 UPDATE_REPOSITORY=qumingla/undefim-lite-blog 自动规范化为新地址，实际拉取固定使用规范仓库 URL，不依赖旧用户名重定向。其他仓库仍必须精确匹配部署配置，拒绝内嵌凭据、不同域名和额外参数。远端回退或历史分叉均失败，不会 reset 开发修改。没有新提交时还会检查运行 revision 和静态标记；两者落后则重建修复，不把“源码一样”误认为“已经部署”。
-- 新提交先在临时独立 Git 工作树中构建候选镜像，不停止当前服务。Compose 只支持单个 blog 服务；新配置若改变镜像名、数据挂载、端口或运行用户则拒绝自动部署，由维护者手动处理。候选构建最长 20 分钟。
+- 执行器锁位于 `.git/blog-update-worker.lock`，不在容器可写队列内。使用 Linux flock 内核锁跨容器 PID 命名空间互斥；锁文件可保留，进程或容器退出后内核释放，无需按 PID 删除陈旧文件。旧版 PID 锁不具备此保证，因此迁移前必须停用旧 systemd。只能运行一个 blog 写实例与一个更新执行器；更新期间不要并行手工改部署目录或运行 Compose。
+- 本地必须无已跟踪修改和未跟踪文件；只允许固定 origin/branch 的快进更新。origin 必须精确匹配 `undefim/undefim-lite-blog` 或部署端明确指定的来源；不再支持旧 owner 别名。实际拉取固定使用配置 URL，拒绝内嵌凭据、不同域名和额外参数。远端回退或历史分叉均失败，不会 reset 开发修改。没有新提交时还会检查运行 revision 和静态标记；两者落后则重建修复，不把“源码一样”误认为“已经部署”。
+- 新提交先在临时独立 Git 工作树中构建候选镜像，不停止当前服务。Compose 仅允许一个 blog 与可选的 updater；额外服务或改变 blog 镜像名、数据挂载、端口、运行用户及 updater 配置均拒绝自动部署。Dockerfile.updater 或容器入口脚本改变时也拒绝后台自动更新，须由维护者用 `docker compose up -d --build` 更新全部服务；执行器不能在监督部署中途重建自身运行环境。候选构建最长 20 分钟。
 - 候选构建成功后，心跳状态开启维护屏障：除登录/退出、更新提交/配置外的写接口返回 503，读取仍可用；等待在途写请求与单进程发布队列排空（最多 6 分钟）。再在运行中的唯一 blog 容器内创建数据库/媒体完整备份，成功且文件存在才继续。
 - 快进代码、将候选镜像提升到固定 BLOG_IMAGE 标签，停止旧容器，再启动新容器。Dockerfile 的 APP_REVISION 构建参数写入镜像；initialize 发现 revision 与 `data/application-revision` 不同时，使用已有 published_data 重新构建静态站点。**不发布全部草稿、不执行 Halo 导入、不恢复旧数据。**静态构建失败时不启动新 API，旧 current 通常保留；健康检查需等待正确 revision 与静态标记（最多约 9 分钟），不能只看 `{ok:true}`。
-- 成功后解除维护屏障，更新后台显示的最近任务；消费请求并持久化结果后执行器退出，由 systemd 的 Restart=always 加载新执行器代码，确保执行器自身的修复生效。直接在终端运行脚本时成功部署后会退出，不具备无人值守续跑能力。服务切换及静态重建期间有维护窗口，不是零停机。CDN 刷新仍沿用发布器的配置，清除失败会记在受保护的发布记录中；源站更新成功不代表 CDN 已刷新。
+- 成功后解除维护屏障，更新后台显示的最近任务；消费请求并持久化结果后执行器退出，由 updater 的 restart: always 加载同路径挂载的新执行器脚本，确保执行器自身的修复生效。直接在终端运行脚本时成功部署后会退出，不具备无人值守续跑能力。服务切换及静态重建期间有维护窗口，不是零停机。CDN 刷新仍沿用发布器的配置，清除失败会记在受保护的发布记录中；源站更新成功不代表 CDN 已刷新。
 - 构建/备份阶段失败不切换服务。切换后失败尝试停止新容器并恢复旧代码、旧镜像标签、旧静态入口和标记，再启动旧服务；**保留当前数据库，绝不自动用旧备份覆盖新增内容**。回退失败会明确提示维护者在宿主机恢复，不能当作服务已恢复。
 - 任何失败都会暂停自动更新；排查后通过手动更新成功/确认最新才恢复。定时以上次完成检查时间为基准，无记录时以持久化的首次启动时间为基准，重启不会推迟首次检查；开启自动时若已到期，下次查看队列即可执行。模式保存持久化；修改间隔或关闭自动不会中止已开始的任务。不会无限重试失败部署。
 - 心跳过期只将执行器显示为离线，不解除已进入的维护屏障。执行器重启会将此前 running 任务标为失败、保留屏障并暂停自动，不重放中断任务；维护者必须检查实际容器、代码和静态入口再手动恢复，只有更新成功或核对运行/静态版本一致才解除屏障。回退失败也保留屏障，避免未知部署状态下继续写入。已有 queued 请求尚未运行时可继续处理。强制断电不是可自动完全恢复的事务。
 
 **可信代码与兼容性边界：**自动更新会构建和执行来源分支的新代码，仓库写权限相当于部署权限。只跟踪受保护、已验证且数据库向后兼容的分支；有数据库不兼容升级、部署契约变更时必须按升级/验证/回退方案人工部署，不能依赖此通用回退恢复数据库。脚本无法自动判断任意未来代码的 schema 兼容性。完整备份、Git 工作树/镜像、release 没有自动保留/清理策略，需关注空间；任务只保留最近一条，不是完整审计日志。
 
-更新配置/队列不在 SQLite、站点 settings、公开 content.json 或内容 ZIP 中；现有完整备份仅含数据库与媒体，也不包含更新配置。灾备恢复后默认仅手动，须另行恢复经过审核的宿主机配置。取消此功能可先在后台改为“仅手动”，再停用 systemd 服务；停止后不会再消费排队请求，不需改数据库结构。不要删除尚需排查的请求、状态和备份。
+更新配置/队列不在 SQLite、站点 settings、公开 content.json 或内容 ZIP 中；现有完整备份仅含数据库与媒体，也不包含更新配置。灾备恢复后默认仅手动，须另行恢复经过审核的 Compose/.env 配置。停用前先在后台改为“仅手动”，确认任务结束后按上文停止/移除 updater；不需改数据库结构。不要删除尚需排查的请求、状态和备份。
 
 ## 环境变量
 
@@ -91,10 +106,12 @@ sudo systemctl status blog-update-worker.service
 | DATA_DIR | 本地 ./data；容器 /app/data | 数据库、媒体、备份、release；以进程工作目录解析 |
 | BLOG_IMAGE | undefim-blog:local | Compose 固定镜像标签，不传入应用；执行器构建后提升候选镜像到此标签，改变它需手动部署 |
 | APP_REVISION | Docker build arg，默认 unknown | 镜像内环境；执行器构建时传入完整提交 SHA，需重建镜像生效；initialize 据此重建已发布快照并写成功标记，不在 Compose 覆盖 |
-| UPDATE_REPO_DIR / UPDATE_DATA_DIR | 执行器工作目录 / 其 data | 仅宿主机；须与普通克隆根目录和 /app/data 绑定一致，修改后重启执行器，不传入容器 |
-| UPDATE_REPOSITORY / UPDATE_BRANCH | undefim/undefim-lite-blog / main | 仅宿主机，可省略，内置本博客开源来源；兼容旧 owner 配置，显式其他来源仍生效；改后重启执行器，后台不能修改 |
-| UPDATE_PROJECT | 必填，现有 Compose 项目名 | 仅宿主机，防止创建第二个写实例；改后重启执行器 |
-| UPDATE_HEALTH_URL | http://127.0.0.1:4322/api/health | 仅宿主机、本机 HTTP 健康地址；改后重启执行器 |
+| BLOG_REPO_DIR | 当前 shell 的 PWD | Compose 解析的宿主机克隆绝对路径；updater 以同路径读写挂载，传为 UPDATE_REPO_DIR，其 data 为 UPDATE_DATA_DIR；修改后重建 updater，不传给 blog |
+| COMPOSE_PROJECT_NAME | `.env.example` 为 undefim-blog | Compose 项目名，自动传给 updater 的 UPDATE_PROJECT；必须使用已有项目，不得新建写实例 |
+| UPDATER_IMAGE | undefim-blog-updater:local | updater 固定本地镜像标签；镜像含工具和启动入口，脚本来自专用克隆；基础环境升级运行 Compose build/up |
+| UPDATE_REPOSITORY / UPDATE_BRANCH | undefim/undefim-lite-blog / main | Compose 仅传给 updater；origin 必须精确匹配，改后重建 updater，后台不能修改 |
+| UPDATE_PROJECT | Compose 自动传入 COMPOSE_PROJECT_NAME | 执行器内部使用；不得指向新项目 |
+| UPDATE_HEALTH_URL / UPDATE_RUNTIME | Compose 固定 http://blog:4322/api/health / compose | 只传 updater；compose 模式额外允许 blog 服务名，仍拒绝任意远端健康地址；直接 Linux 运行仍默认本机回环 URL |
 | HOST / PORT | 127.0.0.1 / 4322；容器 HOST=0.0.0.0 | API 监听，Compose 仅绑定宿主机回环地址 |
 | NODE_ENV | 容器 production | Fastify 生产日志 |
 | SITE_URL | 示例 https://blog.example.com；实际默认值见配置 | 构建 canonical/RSS/sitemap/跳转，需要重新发布 |
@@ -118,7 +135,7 @@ sudo systemctl status blog-update-worker.service
 | `npm test` | 临时数据目录核心回归、背景动画、排版安全和系统更新测试：临时数据目录覆盖草稿/公开隔离、路径、Markdown 清洗、ZIP、鉴权/邮箱隐私、缓存、构建失败与并发草稿、许可协议兼容/导出恢复、私密保存自动撤回与失败重试；动画生命周期；YAML/JSON 兼容、元数据不执行代码、别名限额、公式清洗、畸形 Markdown 引用在独立进程内限时完成 |
 | `npm run check` | tsc；后端 JS 的 checkJs=false，不能代替运行测试 |
 | `DATA_DIR=./data-dev ASTRO_TELEMETRY_DISABLED=1 npm run build` | 前台和后台可构建；使用隔离内容集 |
-| GitHub Actions CI（`.github/workflows/ci.yml`） | PR 与推送 main 时在 `.node-version` 指定的 Node 上执行 `npm ci`、`npm test`、`npm run check`，以隔离空库 `npm run build`，并构建 Docker 镜像（不推送）。Docker 检查还以提交 SHA 构建镜像，在独立命名卷中验证首次静态初始化、健康 revision/标记、前后台、更新接口鉴权、数据库不公开和同版本重启不重复发布，结束销毁该 CI 卷。main 分支保护要求两项检查通过后才能合并。不覆盖浏览器多宽度、宿主机执行器完整部署/回退、真实数据发布和生产部署 |
+| GitHub Actions CI（`.github/workflows/ci.yml`） | PR 与推送 main 时在 `.node-version` 指定的 Node 上执行 `npm ci`、`npm test`、`npm run check`，以隔离空库 `npm run build`，并构建 blog/updater 两个镜像（不推送）。Docker 检查使用独立临时克隆与 Compose 项目验证首次初始化、运行 revision/静态标记、前后台、鉴权/数据库隔离、执行器心跳、内核锁、强杀重启恢复和只重启 blog 不影响 updater，结束销毁隔离容器与数据。main 分支保护要求两项检查通过后才能合并。不覆盖浏览器多宽度、候选更新的完整 Docker 部署/回退、真实数据发布和生产部署 |
 | `npm audit` | 依赖风险核查，记录执行时间和输出，不能永久保证无漏洞 |
 | 浏览器多宽度 | 按架构文档断点，包含完整桌面三栏、后台编辑、长正文、搜索与图片 |
 | `node scripts/verify-workflow.mjs` | 固定请求本机 4325，读取 data/admin-access.txt，创建/编辑/发布/回收测试文章；仅用于已搭建的隔离 QA，结束仍留回收站记录 |

@@ -1,0 +1,9 @@
+FROM docker:29-cli@sha256:5e6baf67325a79f64ed3bed6863954d5e05d0f3d4e57cbdb14809346814bbfdb AS docker-tools
+FROM node:24.22.1-bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates util-linux && rm -rf /var/lib/apt/lists/*
+COPY --from=docker-tools /usr/local/bin/docker /usr/local/bin/docker
+COPY --from=docker-tools /usr/local/libexec/docker/cli-plugins /usr/local/libexec/docker/cli-plugins
+COPY scripts/updater-entrypoint.sh /usr/local/bin/blog-updater
+RUN chmod 755 /usr/local/bin/blog-updater
+ENV HOME=/tmp/blog-updater-home
+ENTRYPOINT ["/usr/local/bin/blog-updater"]

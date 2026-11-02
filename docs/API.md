@@ -42,11 +42,11 @@ JSON 请求使用 `Content-Type: application/json`；文件用 multipart/form-da
 
 执行器离线（45 秒无心跳）时提交返回 503；已有 pending/running 任务返回 409；无会话 401，CSRF/Origin 失败 403。全部响应 no-store。配置独立保存在 DATA_DIR/system-update，不进入站点公开 settings 或内容导出，无 SQL 迁移。
 
-`source` 为 `{repository,branch,url}`，默认 `undefim/undefim-lite-blog`、`main` 与 `https://github.com/undefim/undefim-lite-blog`；执行器曾提供部署端自定义来源时采用其来源，旧 `qumingla/undefim-lite-blog` 显示为改名后的规范地址。该字段只表示来源已配置，不能替代 `online` 或授权执行更新，未启动执行器仍返回 online=false。来源无需在后台填写、不写入公开站点设置。
+`source` 为 `{repository,branch,url}`，默认 `undefim/undefim-lite-blog`、`main` 与 `https://github.com/undefim/undefim-lite-blog`；执行器曾提供部署端自定义来源时采用其来源，不再对旧 owner 做别名转换。该字段只表示来源已配置，不能替代 `online` 或授权执行更新，未启动执行器仍返回 online=false。来源无需在后台填写、不写入公开站点设置。
 
 worker 可含 `repository,branch,revision,startedAt,heartbeatAt,lastCheckedAt,nextRunAt,paused,job`。revision 是执行器已知的部署代码版本，不能单独证明真实运行容器；任务成功需要执行器同时核对运行健康 revision 与初始化静态标记。job 为最近一条任务：`id,trigger,startedAt,finishedAt,status,message,maintenance,from,to,backup?,rollback?`；status 为 running/success/failed/unchanged；backup 仅备份文件名，不含路径/内容，rollback 为恢复结果。pending 为尚未完成请求，运行时也保留直到完成；字段未发生时可省略。没有完整历史或原始 Git/Docker 日志接口。
 
-后台每 5 秒读状态，重启断线后自动重试。失败会暂停自动更新，手动成功/unchanged 后恢复；执行器重启会将 running 标失败并暂停，不自动重放，保留已启用的维护屏障；心跳离线不会自动解锁。维护阶段除登录/退出、系统更新提交/配置以外的写方法返回 503“系统正在更新，写操作暂时暂停，请稍后重试”，GET 仍可读取；写屏障和在途请求/发布队列计数用于停止唯一写实例前排空。安装、权限、周期语义与回退边界见 [运维](OPERATIONS.md#后台-github-更新)。
+后台每 5 秒读状态，重启断线后自动重试。失败会暂停自动更新，手动成功/unchanged 后恢复；执行器重启会将 running 标失败并暂停，不自动重放，保留已启用的维护屏障；心跳离线不会自动解锁。维护阶段除登录/退出、系统更新提交/配置以外的写方法返回 503“系统正在更新，写操作暂时暂停，请稍后重试”，GET 仍可读取；写屏障和在途请求/发布队列计数用于停止唯一写实例前排空。执行器默认由 Compose 的 updater 服务运行，API 路径/鉴权与队列格式不变。安装、权限、周期语义与回退边界见 [运维](OPERATIONS.md#后台-github-更新)。
 
 ## 文档与历史版本
 
