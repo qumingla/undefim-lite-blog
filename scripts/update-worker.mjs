@@ -6,6 +6,7 @@ import {promisify} from 'node:util';
 import {fileURLToPath} from 'node:url';
 import {randomUUID} from 'node:crypto';
 import {defaultUpdateConfig,readUpdateFile,writeUpdateFile,publishUpdateRequest,validateUpdateConfig} from '../server/system-update.mjs';
+import {defaultUpdateSource,canonicalUpdateRepository,matchesUpdateRemote} from '../server/update-source.mjs';
 
 const exec=promisify(execFile);
 const timestamp=()=>new Date().toISOString();
@@ -16,7 +17,7 @@ export async function command(program,args,{cwd,timeout=120000}={}){
  catch{throw new Error(`${program==='git'?'Git':'Docker'} 操作失败或超时，请在宿主机检查仓库、网络与服务状态`)}
 }
 export function workerOptions(env=process.env){
- const repository=env.UPDATE_REPOSITORY||'qumingla/undefim-lite-blog',branch=env.UPDATE_BRANCH||'main',project=env.UPDATE_PROJECT;
+ const repository=canonicalUpdateRepository(env.UPDATE_REPOSITORY||defaultUpdateSource.repository),branch=env.UPDATE_BRANCH||defaultUpdateSource.branch,project=env.UPDATE_PROJECT;
  requireValue(/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(repository)&&!repository.includes('..'),'UPDATE_REPOSITORY 必须是 GitHub owner/repo');
  requireValue(/^[a-zA-Z0-9][a-zA-Z0-9._/-]*$/.test(branch)&&!branch.includes('..')&&!branch.includes('//')&&!branch.endsWith('/')&&!branch.endsWith('.lock'),'UPDATE_BRANCH 无效');
  requireValue(project&&/^[a-z0-9][a-z0-9_-]*$/.test(project),'必须设置现有 Compose 项目的 UPDATE_PROJECT');
@@ -55,11 +56,11 @@ export async function executeUpdate(options,{run=command,health=()=>readHealth(o
   await clean();
   requireValue(await git('branch','--show-current')===branch,'本地分支与跟踪分支不同，已停止更新');
   const remote=await git('remote','get-url','origin');
-  requireValue([`https://github.com/${repository}`,`https://github.com/${repository}.git`].includes(remote),'origin 与部署端固定的 GitHub 仓库不匹配，仅支持无内嵌凭据的 HTTPS 来源');
+  requireValue(matchesUpdateRemote(remote,repository),'origin 与部署端固定的 GitHub 仓库不匹配，仅支持无内嵌凭据的 HTTPS 来源');
   from=await git('rev-parse','HEAD');
   requireValue(/^[0-9a-f]{40,64}$/.test(from),'本地版本无效');
   await progress('正在检查 GitHub 分支。',{from});
-  await git('fetch','--no-tags','origin',`+refs/heads/${branch}:refs/remotes/origin/${branch}`);
+  await git('fetch','--no-tags',`https://github.com/${repository}.git`,`+refs/heads/${branch}:refs/remotes/origin/${branch}`);
   to=await git('rev-parse',`refs/remotes/origin/${branch}`);
   requireValue(/^[0-9a-f]{40,64}$/.test(to),'远端版本无效');
   await progress('已获取远端版本。',{to});

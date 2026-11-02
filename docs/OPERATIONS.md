@@ -41,13 +41,13 @@ DATA_DIR=./data-dev node scripts/import-halo.mjs /absolute/path/to/halo-backup.z
 
 ## 源码仓库
 
-仓库：https://github.com/qumingla/undefim-lite-blog ，默认分支 `main`。2026-10-02 用当前独立博客源码完整替换旧版本目录，保留 Git 历史用于追溯；旧版本文件不混入当前目录。公开仓库仅含代码、依赖锁文件、公开主题资源、示例和维护文档。`migration/reports/`、`migration/screenshots/` 与原始备份保留在本地，文档中的这些路径是本地证据位置，不保证在克隆后存在。
+仓库：https://github.com/undefim/undefim-lite-blog ，默认分支 `main`；原 `qumingla/undefim-lite-blog` 为已核实的旧地址。2026-10-02 用当前独立博客源码完整替换旧版本目录，保留 Git 历史用于追溯；旧版本文件不混入当前目录。公开仓库仅含代码、依赖锁文件、公开主题资源、示例和维护文档。`migration/reports/`、`migration/screenshots/` 与原始备份保留在本地，文档中的这些路径是本地证据位置，不保证在克隆后存在。
 
 推送前检查 `git diff --cached --stat` 和待提交文件；不能使用 `git add -f` 绕过私有数据忽略规则。更新 GitHub 本身不会更新正式服务器；可按下文手动部署，或安装“后台 GitHub 更新”执行器后由后台手动/定时触发。
 
 ## 后台 GitHub 更新
 
-后台“系统更新”管理的是**程序部署**，与“发布站点”和“导入后自动发布”不同。默认仅手动；可选择每 1/6/12/24/168 小时检查。API 只写私有文件请求，由 Linux 宿主机上的唯一执行器读取；没有向容器挂载 Docker socket，也不从 HTTP 请求接收仓库、分支、Shell 或凭据。来源默认 `qumingla/undefim-lite-blog/main`，由宿主机环境固定。
+后台“系统更新”管理的是**程序部署**，与“发布站点”和“导入后自动发布”不同。默认仅手动；可选择每 1/6/12/24/168 小时检查。API 只写私有文件请求，由 Linux 宿主机上的唯一执行器读取；没有向容器挂载 Docker socket，也不从 HTTP 请求接收仓库、分支、Shell 或凭据。来源默认 `undefim/undefim-lite-blog/main`，无需填写仓库和分支；未启动执行器时后台也直接显示此默认来源，不再显示“等待宿主机配置”。来源由宿主机环境固定，显式自定义值仍优先于默认值；来源已配置不等于执行器已连接，离线时仍禁止更新。
 
 ### 首次安装
 
@@ -71,7 +71,7 @@ sudo systemctl status blog-update-worker.service
 ### 运行流程与失败边界
 
 - 执行器锁位于 `.git/blog-update-worker.lock`，不在容器可写队列内。第二个执行器拒绝启动；进程已不存在时可回收 PID 锁。只能运行一个 blog 写实例与一个更新执行器；更新期间不要并行手工改部署目录或运行 Compose。
-- 本地必须无已跟踪修改和未跟踪文件；只允许固定 origin/branch 的快进更新。远端回退或历史分叉均失败，不会 reset 开发修改。没有新提交时还会检查运行 revision 和静态标记；两者落后则重建修复，不把“源码一样”误认为“已经部署”。
+- 本地必须无已跟踪修改和未跟踪文件；只允许固定 origin/branch 的快进更新。默认来源同时兼容新旧两个已知 GitHub HTTPS origin；旧环境 UPDATE_REPOSITORY=qumingla/undefim-lite-blog 自动规范化为新地址，实际拉取固定使用规范仓库 URL，不依赖旧用户名重定向。其他仓库仍必须精确匹配部署配置，拒绝内嵌凭据、不同域名和额外参数。远端回退或历史分叉均失败，不会 reset 开发修改。没有新提交时还会检查运行 revision 和静态标记；两者落后则重建修复，不把“源码一样”误认为“已经部署”。
 - 新提交先在临时独立 Git 工作树中构建候选镜像，不停止当前服务。Compose 只支持单个 blog 服务；新配置若改变镜像名、数据挂载、端口或运行用户则拒绝自动部署，由维护者手动处理。候选构建最长 20 分钟。
 - 候选构建成功后，心跳状态开启维护屏障：除登录/退出、更新提交/配置外的写接口返回 503，读取仍可用；等待在途写请求与单进程发布队列排空（最多 6 分钟）。再在运行中的唯一 blog 容器内创建数据库/媒体完整备份，成功且文件存在才继续。
 - 快进代码、将候选镜像提升到固定 BLOG_IMAGE 标签，停止旧容器，再启动新容器。Dockerfile 的 APP_REVISION 构建参数写入镜像；initialize 发现 revision 与 `data/application-revision` 不同时，使用已有 published_data 重新构建静态站点。**不发布全部草稿、不执行 Halo 导入、不恢复旧数据。**静态构建失败时不启动新 API，旧 current 通常保留；健康检查需等待正确 revision 与静态标记（最多约 9 分钟），不能只看 `{ok:true}`。
@@ -92,7 +92,7 @@ sudo systemctl status blog-update-worker.service
 | BLOG_IMAGE | undefim-blog:local | Compose 固定镜像标签，不传入应用；执行器构建后提升候选镜像到此标签，改变它需手动部署 |
 | APP_REVISION | Docker build arg，默认 unknown | 镜像内环境；执行器构建时传入完整提交 SHA，需重建镜像生效；initialize 据此重建已发布快照并写成功标记，不在 Compose 覆盖 |
 | UPDATE_REPO_DIR / UPDATE_DATA_DIR | 执行器工作目录 / 其 data | 仅宿主机；须与普通克隆根目录和 /app/data 绑定一致，修改后重启执行器，不传入容器 |
-| UPDATE_REPOSITORY / UPDATE_BRANCH | qumingla/undefim-lite-blog / main | 仅宿主机固定 GitHub owner/repo 与分支；改后重启执行器，后台不能修改 |
+| UPDATE_REPOSITORY / UPDATE_BRANCH | undefim/undefim-lite-blog / main | 仅宿主机，可省略，内置本博客开源来源；兼容旧 owner 配置，显式其他来源仍生效；改后重启执行器，后台不能修改 |
 | UPDATE_PROJECT | 必填，现有 Compose 项目名 | 仅宿主机，防止创建第二个写实例；改后重启执行器 |
 | UPDATE_HEALTH_URL | http://127.0.0.1:4322/api/health | 仅宿主机、本机 HTTP 健康地址；改后重启执行器 |
 | HOST / PORT | 127.0.0.1 / 4322；容器 HOST=0.0.0.0 | API 监听，Compose 仅绑定宿主机回环地址 |

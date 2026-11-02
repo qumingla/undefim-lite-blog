@@ -36,11 +36,13 @@ JSON 请求使用 `Content-Type: application/json`；文件用 multipart/form-da
 
 | 方法 | 路径 | 输入 | 返回与语义 |
 | --- | --- | --- | --- |
-| GET | `/api/system/update` | 管理员 Cookie | `{config,online,worker,pending}`；首次 worker/pending 为 null，config 为 `{mode:"manual",intervalHours:24}` |
+| GET | `/api/system/update` | 管理员 Cookie | `{config,source,online,worker,pending}`；首次 worker/pending 为 null，config 为 `{mode:"manual",intervalHours:24}`；source 始终包含预设仓库、分支与 GitHub 链接，不依赖执行器在线 |
 | PUT | `/api/system/update/config` | Cookie + CSRF，`{mode,intervalHours}` | 原样返回已验证的配置；mode 仅 manual/auto，intervalHours 仅数字 1/6/12/24/168；未知键一律 400；可离线保存，不启动执行器 |
 | POST | `/api/system/update/run` | Cookie + CSRF，无正文或空对象 | **202** `{id,requestedAt,trigger:"manual"}`；只是原子提交请求，不代表更新完成；不接收仓库、分支、命令或凭据 |
 
 执行器离线（45 秒无心跳）时提交返回 503；已有 pending/running 任务返回 409；无会话 401，CSRF/Origin 失败 403。全部响应 no-store。配置独立保存在 DATA_DIR/system-update，不进入站点公开 settings 或内容导出，无 SQL 迁移。
+
+`source` 为 `{repository,branch,url}`，默认 `undefim/undefim-lite-blog`、`main` 与 `https://github.com/undefim/undefim-lite-blog`；执行器曾提供部署端自定义来源时采用其来源，旧 `qumingla/undefim-lite-blog` 显示为改名后的规范地址。该字段只表示来源已配置，不能替代 `online` 或授权执行更新，未启动执行器仍返回 online=false。来源无需在后台填写、不写入公开站点设置。
 
 worker 可含 `repository,branch,revision,startedAt,heartbeatAt,lastCheckedAt,nextRunAt,paused,job`。revision 是执行器已知的部署代码版本，不能单独证明真实运行容器；任务成功需要执行器同时核对运行健康 revision 与初始化静态标记。job 为最近一条任务：`id,trigger,startedAt,finishedAt,status,message,maintenance,from,to,backup?,rollback?`；status 为 running/success/failed/unchanged；backup 仅备份文件名，不含路径/内容，rollback 为恢复结果。pending 为尚未完成请求，运行时也保留直到完成；字段未发生时可省略。没有完整历史或原始 Git/Docker 日志接口。
 

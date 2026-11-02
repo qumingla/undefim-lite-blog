@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
+import {updateSource} from './update-source.mjs';
 
 export const updateIntervals=[1,6,12,24,168];
 export const defaultUpdateConfig={mode:'manual',intervalHours:24};
@@ -29,7 +30,7 @@ export function createSystemUpdate(dataDir,{clock=Date.now}={}){
  return {
   async status(){
    const [config,worker,pending]=await Promise.all([readUpdateFile(file('config'),defaultUpdateConfig),readUpdateFile(file('status')),readUpdateFile(file('request'))]);
-   return {config:validateUpdateConfig(config),online:online(worker),worker,pending};
+   return {config:validateUpdateConfig(config),source:updateSource(worker),online:online(worker),worker,pending};
   },
   async configure(input){const config=validateUpdateConfig(input);await writeUpdateFile(file('config'),config);return config},
   async request(){
