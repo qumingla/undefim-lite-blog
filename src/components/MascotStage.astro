@@ -1,6 +1,42 @@
 ---
-// Kiln profile scene: a wandering mascot and a pixel campfire. data-reserve keeps the walker clear of the fire.
+// Kiln profile scene: the wandering mascot and an animated campfire. The hill stays out of view until the mascot
+// sets off to climb: the scenery scrolls past, the camp drifts away and the hill slides in (data-scene=mountain).
+// The hill profile is shared with kiln.ts through data-profile so climbing follows the drawn slope.
 import Mascot from './Mascot.astro';
 const {class:extra}=Astro.props;
+const hill=[1,1,2,3,3,4,5,5,6,7,7,8,8,8,8,8,8,8,8,8,7,7,6,5,5,4,3,3,2,1,1,1];
+// Three hand-tuned flame frames (column heights above the logs) cycled by CSS for a pixel flicker.
+const frames=[
+ {outer:[2,4,6,9,11,10,8,5,3,1],mid:[0,2,4,6,8,7,5,3,1,0],core:[0,0,2,3,5,4,3,1,0,0],tip:[4,0]},
+ {outer:[1,3,7,10,9,11,7,4,2,1],mid:[0,2,5,7,6,8,5,2,1,0],core:[0,0,2,4,4,5,3,1,0,0],tip:[5,1]},
+ {outer:[2,5,6,8,10,9,9,6,3,1],mid:[0,3,4,6,7,7,6,3,0,0],core:[0,1,2,4,5,4,2,1,0,0],tip:[3,1]}
+];
+const columns=(heights:number[])=>heights.map((h,i)=>({x:2+i,h})).filter(c=>c.h>0);
 ---
-<div class:list={['profile-stage',extra]} data-reserve="34"><Mascot walker/><svg class="kiln-fire" width="30" height="36" viewBox="0 0 10 12" shape-rendering="crispEdges" aria-hidden="true"><g class="fire-outer"><rect x="3" y="2" width="4" height="8"/><rect x="2" y="5" width="6" height="5"/><rect x="4" y="0" width="2" height="2"/></g><g class="fire-inner"><rect x="4" y="5" width="2" height="5"/><rect x="3" y="7" width="4" height="3"/></g><rect class="fire-log" x="0" y="10" width="10" height="2"/></svg></div>
+<div class:list={['profile-stage',extra]}>
+ <div class="stage-scenery" aria-hidden="true"></div>
+ <svg class="kiln-hill" width="96" height="24" viewBox="0 0 32 8" shape-rendering="crispEdges" aria-hidden="true" data-profile={hill.join(',')}>
+  {hill.map((h,i)=><><rect class={i<16?'hill-lit':'hill-shade'} x={i} y={8-h} width="1" height={h}/><rect class={h===8?'hill-peak':'hill-cap'} x={i} y={8-h} width="1" height="1"/></>)}
+  <rect class="hill-snow" x="13" y="0" width="5" height="1"/><rect class="hill-snow" x="14" y="1" width="2" height="1"/>
+  <g class="hill-pine"><rect x="4" y="2" width="1" height="1"/><rect x="3" y="3" width="3" height="1"/><rect x="2" y="4" width="5" height="1"/><rect x="3" y="5" width="3" height="1"/><rect class="pine-trunk" x="4" y="6" width="1" height="1"/></g>
+ </svg>
+ <Mascot walker/>
+ <div class="kiln-campfire" aria-hidden="true">
+  <span class="fire-glow"></span>
+  <svg class="kiln-fire" width="42" height="48" viewBox="0 0 14 16" shape-rendering="crispEdges">
+   <g class="fire-flames">
+    {frames.map((f,n)=><g class={`flame-frame flame-${n+1}`}>
+     {columns(f.outer).map(c=><rect class="flame-outer" x={c.x} y={13-c.h} width="1" height={c.h}/>)}
+     {columns(f.mid).map(c=><rect class="flame-mid" x={c.x} y={13-c.h} width="1" height={c.h}/>)}
+     {columns(f.core).map(c=><rect class="flame-core" x={c.x} y={13-c.h} width="1" height={c.h}/>)}
+     <rect class="flame-outer" x={2+f.tip[0]} y={13-f.outer[f.tip[0]]-2-f.tip[1]} width="1" height="1"/>
+    </g>)}
+   </g>
+   <rect class="fire-log" x="1" y="13" width="12" height="2"/>
+   <rect class="fire-log-dark" x="0" y="14" width="5" height="1"/><rect class="fire-log-dark" x="9" y="14" width="5" height="1"/>
+   <rect class="fire-ember e1" x="4" y="13" width="1" height="1"/><rect class="fire-ember e2" x="9" y="14" width="1" height="1"/><rect class="fire-ember e3" x="6" y="14" width="1" height="1"/>
+   <rect class="fire-stone" x="0" y="15" width="2" height="1"/><rect class="fire-stone" x="12" y="15" width="2" height="1"/>
+  </svg>
+  <span class="spark s1"></span><span class="spark s2"></span><span class="spark s3"></span><span class="spark s4"></span><span class="spark s5"></span><span class="spark s6"></span>
+ </div>
+</div>
