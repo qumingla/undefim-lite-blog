@@ -83,4 +83,32 @@ test('前台主题默认为 Dream，只接受已登记的主题并写入公开�
   await app.inject({method:'PUT',url:'/api/settings',headers,payload:{siteTheme:'dream'}});
  } finally {await app.close()}
 });
+test('备案设置兼容旧库，校验可选文本并随公开快照与内容导出保留，保存不切换静态版本',async()=>{
+ const {settings,publicExport}=await import('../server/db.mjs');
+ assert.equal(settings().icpRecord,'');assert.equal(settings().publicSecurityRecord,'');
+ assert.equal(db.prepare("SELECT count(*) AS n FROM settings WHERE key IN ('icpRecord','publicSecurityRecord')").get().n,0);
+ const current=await fs.realpath(path.join(process.env.DATA_DIR,'current'));
+ const app=await createApp();
+ try {
+  const login=await app.inject({method:'POST',url:'/api/auth/login',payload:{username:'test',password:'test-password-long-enough'}});
+  const headers={cookie:login.headers['set-cookie'].split(';')[0],'x-csrf-token':login.json().csrf};
+  for(const key of ['icpRecord','publicSecurityRecord'])for(const value of [null,123,{},'x'.repeat(101)]) {
+   const response=await app.inject({method:'PUT',url:'/api/settings',headers,payload:{[key]:value}});
+   assert.equal(response.statusCode,400);assert.equal(settings()[key],'');
+  }
+  const records={icpRecord:'测试ICP备00000000号',publicSecurityRecord:'测试公网安备00000000000000号'};
+  const saved=await app.inject({method:'PUT',url:'/api/settings',headers,payload:Object.fromEntries(Object.entries(records).map(([k,v])=>[k,`  ${v}  `]))});
+  assert.equal(saved.statusCode,200);
+  const exported=await app.inject({url:'/api/export',headers});
+  const zip=await JSZip.loadAsync(exported.rawPayload);
+  const exportedSettings=JSON.parse(await zip.file('settings.json').async('string'));
+  for(const [key,value] of Object.entries(records)) {
+   assert.equal(saved.json()[key],value);assert.equal(publicExport().settings[key],value);assert.equal(exportedSettings[key],value);
+  }
+  const partial=await app.inject({method:'PUT',url:'/api/settings',headers,payload:{icpRecord:'   '}});
+  assert.equal(partial.json().icpRecord,'');assert.equal(partial.json().publicSecurityRecord,records.publicSecurityRecord);
+  assert.equal(await fs.realpath(path.join(process.env.DATA_DIR,'current')),current);
+  await app.inject({method:'PUT',url:'/api/settings',headers,payload:{publicSecurityRecord:''}});
+ } finally {await app.close()}
+});
 test.after(async()=>{db.close();await fs.rm(process.env.DATA_DIR,{recursive:true,force:true})});
