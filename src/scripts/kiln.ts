@@ -38,10 +38,14 @@ function controller(walker:HTMLElement){
  };
 }
 
+// Mascots in persisted regions keep running across page swaps; ones inside a swapped page (404) are added
+// when their page loads and stop scheduling once they leave the document.
+const all:Mascot[]=[];const interrupts=new Map<Mascot,()=>void>();const bound=new WeakSet<Element>();let tracking=false;
 function mascots(){
- const all=[...document.querySelectorAll<HTMLElement>('.mascot-walker')].map(controller);
- const interrupts=new Map<Mascot,()=>void>();
- for(const m of all){
+ const fresh=[...document.querySelectorAll<HTMLElement>('.mascot-walker')].filter(w=>!bound.has(w)).map(w=>{bound.add(w);return controller(w)});
+ for(let i=all.length-1;i>=0;i--)if(!all[i].walker.isConnected)all.splice(i,1);
+ all.push(...fresh);
+ for(const m of fresh){
   m.button.addEventListener('animationend',e=>{if(e.animationName==='kiln-hop')m.button.classList.remove('is-hopping')});
   m.button.addEventListener('click',()=>{
    if(m.pose==='doze'){
@@ -51,13 +55,13 @@ function mascots(){
    }
    m.hop();const lines=poseLines[m.pose]||idleLines;m.say(pick(finePointer.matches?[...lines,...(lines===idleLines?['按 / 可以搜索文章']:[])]:lines));
   });
-  const blink=()=>{if(!motion.matches&&!['doze','stretch','warm','summit'].includes(m.pose)){m.walker.classList.add('is-blinking');window.setTimeout(()=>m.walker.classList.remove('is-blinking'),140)}later(blink,2500,6500)};
+  const blink=()=>{if(!m.walker.isConnected)return;if(!motion.matches&&!['doze','stretch','warm','summit'].includes(m.pose)){m.walker.classList.add('is-blinking');window.setTimeout(()=>m.walker.classList.remove('is-blinking'),140)}later(blink,2500,6500)};
   later(blink,800,4000);
   const stage=m.walker.parentElement;
   if(m.walker.classList.contains('is-wanderer')&&stage)direct(m,stage,interrupts);
   else if(!m.walker.closest('.search-heading'))fidget(m,interrupts);
  }
- if(!all.length)return;
+ if(tracking||!all.length)return;tracking=true;
  // Eyes follow the pointer by at most one pixel of the 22x16 grid.
  let pending=0,px=0,py=0;
  window.addEventListener('pointermove',e=>{
@@ -72,6 +76,7 @@ function mascots(){
 // Stationary mascots (footer, 404) look around, gaze upward or nap now and then.
 function fidget(m:Mascot,interrupts:Map<Mascot,()=>void>){
  const step=async()=>{
+  if(!m.walker.isConnected)return;
   if(!motion.matches&&m.pose==='idle'){
    const s=scene();interrupts.set(m,()=>cancel(s));const roll=Math.random();
    if(roll<.55){m.look(pick([-1,1]),0);await sleep(700,s);m.look(pick([-1,1]),pick([-1,0]));await sleep(600,s);m.release()}
@@ -166,6 +171,7 @@ function direct(m:Mascot,stage:HTMLElement,interrupts:Map<Mascot,()=>void>){
  (async()=>{
   await sleep(random(1200,2600));
   for(;;){
+   if(!stage.isConnected)return;
    // Off-screen stages (closed drawer, hidden tab) and reduced motion simply wait.
    if(document.hidden||motion.matches||stage.clientWidth<150){await sleep(2500);continue}
    const s=scene();interrupts.set(m,()=>cancel(s));
@@ -177,15 +183,19 @@ function direct(m:Mascot,stage:HTMLElement,interrupts:Map<Mascot,()=>void>){
  })();
 }
 
+// The header, back-to-top button and article change with each page, so they are looked up on every update.
+let updateScroll=()=>{};
 function scrollEffects(){
- const header=document.querySelector<HTMLElement>('.site-header'),backTop=document.querySelector<HTMLElement>('.floating-actions'),progress=document.querySelector<HTMLElement>('.reading-progress');
- const article=document.querySelector<HTMLElement>('.article');let pending=0;
- const update=()=>{pending=0;const y=window.scrollY;
+ let pending=0;
+ const update=updateScroll=()=>{pending=0;const y=window.scrollY;
+  const header=document.querySelector<HTMLElement>('.site-header'),backTop=document.querySelector<HTMLElement>('.floating-actions'),progress=document.querySelector<HTMLElement>('.reading-progress'),article=document.querySelector<HTMLElement>('.article');
   header?.classList.toggle('is-scrolled',y>8);backTop?.classList.toggle('is-visible',y>window.innerHeight*.8);
   if(progress&&article){const box=article.getBoundingClientRect();const total=box.height-window.innerHeight*.6;progress.style.transform=`scaleX(${Math.max(0,Math.min(1,total>0?-box.top/total:1)).toFixed(4)})`}
  };
  window.addEventListener('scroll',()=>{if(!pending)pending=requestAnimationFrame(update)},{passive:true});
  window.addEventListener('resize',update,{passive:true});update();
+ // Restyle the incoming header before it is painted so a restored scroll position keeps its scrolled look.
+ document.addEventListener('astro:after-swap',update);
 }
 
 function reveal(){
@@ -215,7 +225,6 @@ function shortcuts(){
  });
  const input=document.querySelector<HTMLInputElement>('#site-search'),helper=document.querySelector<HTMLElement>('.search-heading .mascot-walker');let idle=0;
  input?.addEventListener('input',()=>{helper?.classList.add('is-reading');clearTimeout(idle);idle=window.setTimeout(()=>helper?.classList.remove('is-reading'),700)});
- document.querySelector('.like-button')?.addEventListener('click',e=>{const b=e.currentTarget as HTMLElement;b.classList.remove('is-popped');void b.offsetWidth;b.classList.add('is-popped')});
  const drawer=document.querySelector<HTMLElement>('.mobile-drawer');
  const closeDrawer=()=>{if(drawer&&!drawer.hidden)document.querySelector<HTMLButtonElement>('.mobile-menu')?.click()};
  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer()});
@@ -223,4 +232,10 @@ function shortcuts(){
  document.addEventListener('click',e=>{const t=e.target as Element;if(drawer&&!drawer.hidden&&!drawer.contains(t)&&!t.closest('.mobile-menu'))closeDrawer()});
 }
 
-export function startKiln(){mascots();scrollEffects();reveal();spotlight();shortcuts()}
+// Once per full load: global listeners and the mascots in persisted regions.
+export function startKiln(){mascots();scrollEffects();spotlight();shortcuts()}
+// For every page (including the first): content-level effects inside the swapped page.
+export function kilnPage(){
+ mascots();reveal();updateScroll();
+ document.querySelector('.like-button')?.addEventListener('click',e=>{const b=e.currentTarget as HTMLElement;b.classList.remove('is-popped');void b.offsetWidth;b.classList.add('is-popped')});
+}

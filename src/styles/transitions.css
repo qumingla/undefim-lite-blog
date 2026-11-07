@@ -1,0 +1,30 @@
+/* In-site navigation (Astro ClientRouter + View Transitions).
+   The page shell stays put: the whole root cross-fades briefly while the new main cards play their own
+   entrance animation; the persistent left column swaps instantly so the mascot never ghosts; the active
+   nav underline slides to its new item. Without View Transitions support the router swaps without animation. */
+::view-transition-old(root),::view-transition-new(root){animation-duration:.26s;animation-timing-function:cubic-bezier(.4,0,.2,1)}
+.left-column{view-transition-name:page-left}
+::view-transition-group(page-left),::view-transition-new(page-left){animation:none}
+::view-transition-old(page-left){display:none}
+::view-transition-group(nav-indicator){animation-duration:.46s;animation-timing-function:cubic-bezier(.22,1,.36,1)}
+
+/* The active underline is a real element so it can carry a transition name; it replaces the :after bar. */
+.desktop-nav a.active:after{display:none}
+.nav-indicator{position:absolute;left:0;right:0;bottom:0;height:3px;border-radius:3px 3px 0 0;background:var(--accent);pointer-events:none;view-transition-name:nav-indicator}
+:root[data-skin=kiln] .nav-indicator{left:12px;right:12px;bottom:12px;height:2px;border-radius:2px}
+
+/* The header is re-rendered on every swap; its entrance (Kiln slides it down) belongs to the first load only. */
+:root[data-routed] .site-header{animation:none!important}
+
+/* Persisted cards already played their entrance once; re-attaching them must not replay it. */
+[data-settled].card,[data-settled] .card{animation:none!important}
+
+/* Thin progress bar, shown only when a page takes a moment to load. */
+.route-progress{position:fixed;top:0;left:0;right:0;height:2px;z-index:40;pointer-events:none;background:var(--accent);transform:scaleX(0);transform-origin:left;opacity:0}
+.route-progress.is-loading{opacity:1;transform:scaleX(.82);transition:transform 6s cubic-bezier(.08,.82,.17,1),opacity .15s ease}
+.route-progress.is-done{opacity:0;transform:scaleX(1);transition:transform .2s ease,opacity .3s ease .15s}
+
+@media(prefers-reduced-motion:reduce){
+ ::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}
+ .route-progress{display:none}
+}
