@@ -57,6 +57,7 @@ flowchart LR
 | 文件 / 目录 | 职责与联动 |
 | --- | --- |
 | `src/layouts/Site.astro` | 共同页面外壳、SEO、左右栏、导航、搜索弹层、主题初始化、可选统计脚本 |
+| `src/components/Registration.astro` | 可选 ICP/公安备案文本与固定官方链接，页脚底部居中、自动换行 |
 | `src/components/PostCard.astro`、`Listing.astro`、`Icon.astro` | 列表卡片、分页与统一 SVG 图标 |
 | `src/styles/site.css` | 前台主题变量、透明卡片、正文排版、断点和动效降级 |
 | `server/themes.mjs`、`src/styles/kiln.css`、`src/scripts/kiln.ts`、`src/scripts/mascot-scene.ts`、`src/components/Mascot.astro`、`MascotStage.astro` | 可选前台主题登记；窑火主题样式（全部限定在 `:root[data-skin=kiln]`）、交互、吉祥物动作调度（山坡几何与动作选择为可测试纯函数）、像素吉祥物与舞台 |
@@ -109,6 +110,10 @@ flowchart LR
 沿用本地 WenCang 字体（Dream），在 Site.astro 预加载；列表标题 22.4px/1.25，摘要 15.4px/1.5，正文 16px/1.8，手机继续使用其独立字号/行距。明暗主题使用 CSS 变量与 data-theme，用户选择保存在 localStorage；无有效手动选择时跟随系统变化。
 
 背景动态为缓慢向右上漂移、闪烁的星点与偶发短流星，最多 300 星点、2 条流星，30 FPS、DPR 上限 2。页面隐藏/pagehide 暂停，恢复后继续；prefers-reduced-motion 停止并清空背景动画，同时关闭卡片入场、头像旋转和过渡，返回顶部也改为即时滚动。
+
+### 页脚备案信息
+
+设置面板字段允许网格收缩（`min-width:0`），避免手机导航表单撑宽整页。后台“站点设置 → 备案信息”提供可分别留空的 ICP 与公安备案号；保存后需发布站点才更新前台。`src/components/Registration.astro` 在共用页脚最底部渲染备案链接，PC、平板和手机均居中排列，窄屏自动换行；沿用各主题页脚字体与颜色，留空不输出区域。链接固定指向官方查询系统，输入按纯文本转义，公安号中独立的 14 位数字用于生成查询链接。
 
 ### 后台主题跟随
 

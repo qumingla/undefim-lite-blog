@@ -148,6 +148,7 @@ path 必须以 `/` 开始，不可为根；不含 query/hash、反斜线、控�
 
 设置键：title、description、author、bio、location、announcement、email、github、qq、startDate、umamiWebsiteId（字符串 <=3000）；avatar/logo/background（URL）；accent（六位十六进制色）；cardOpacity（0.5–1）；siteTheme（`dream` 或 `kiln`，登记于 `server/themes.mjs`，其他值 400“前台主题无效”；旧数据缺省为 `dream`）；importAutoPublish（boolean）；navigation、categories、tags、links；assetMap（迁移资源映射，目前缺少专门结构校验，不能存放秘密）。只接收 defaultSettings 中的键，其他键被忽略；公开构建导出这些默认键，不应把 Token 加入其中。
 
+- icpRecord、publicSecurityRecord：可选备案文本，trim 后最多 100 字符，默认空串；空白归为空串，非字符串或超长返回 400。分别链接工信部备案系统与公安备案系统；公安文本含独立的 14 位数字时链接对应查询，否则链接公安备案首页。不解析 HTML，不接收自定义链接，前台按转义文本显示。保存不会自动构建，须点击“发布站点”生效。
 - navigation：最多 20 个 `{label<=40,href:URL}`。
 - categories/tags：各最多 1000 个 `{id?,name,slug,description?,color?,children?,hidden?}`；name 1–100，slug 1–150 且只含 Unicode 字母/数字/点/下划线/连字符，同组 slug 不重复，description <=2000，children 为字符串数组。
 - links：最多 300 个 `{name<=100,url:URL,logo?:URL}`。

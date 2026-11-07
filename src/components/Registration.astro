@@ -1,0 +1,15 @@
+---
+interface Props { icpRecord?: string; publicSecurityRecord?: string }
+const {icpRecord='',publicSecurityRecord=''}=Astro.props;
+const icp=icpRecord.trim(),security=publicSecurityRecord.trim();
+const code=security.match(/(?<!\d)\d{14}(?!\d)/)?.[0];
+const securityUrl=code?`https://beian.mps.gov.cn/#/query/webSearch?code=${code}`:'https://beian.mps.gov.cn/';
+---
+{(icp||security)&&<p class="site-registration">
+ {icp&&<a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">{icp}</a>}
+ {security&&<a href={securityUrl} target="_blank" rel="noopener noreferrer">{security}</a>}
+</p>}
+<style>
+ .site-registration{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 18px}
+ .site-registration a{min-width:0;max-width:100%;overflow-wrap:anywhere}
+</style>
