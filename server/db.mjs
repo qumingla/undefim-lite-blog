@@ -42,7 +42,8 @@ export const defaultSettings = {
  announcement: '欢迎来访我的个人博客。\nWelcome to visit my personal blog.', email: 'undefim@linux.do',
  github: 'https://github.com/qumingla', qq: '3068768267', startDate: '2023-04-01',
  navigation: [{label:'首页',href:'/'},{label:'动态',href:'/categories/ri-chang'},{label:'友链',href:'/you-lian'},{label:'关于',href:'/about'}],
- categories: [], tags: [], links: [], assetMap: {}, importAutoPublish: false, umamiWebsiteId: ''
+ categories: [], tags: [], links: [], assetMap: {}, importAutoPublish: false, umamiWebsiteId: '',
+ icpRecord: '', publicSecurityRecord: ''
 };
 export function settings() {
  const rows = db.prepare('SELECT key,value FROM settings').all();
