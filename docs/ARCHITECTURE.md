@@ -56,12 +56,13 @@ flowchart LR
 
 | 文件 / 目录 | 职责与联动 |
 | --- | --- |
-| `src/layouts/Site.astro` | 共同页面外壳、SEO、左右栏、导航、搜索弹层、主题初始化、可选统计脚本 |
+| `src/layouts/Site.astro` | 共同页面外壳、SEO、左右栏、导航、搜索弹层、主题初始化、可选统计脚本；挂载 Astro `ClientRouter` 并标记站内切换时保留的区域 |
+| `src/styles/transitions.css` | 站内无刷新切换的 View Transitions 动效、导航指示条、加载进度条与减少动态降级 |
 | `src/components/Registration.astro` | 可选 ICP/公安备案文本与固定官方链接，页脚底部居中、自动换行 |
 | `src/components/PostCard.astro`、`Listing.astro`、`Icon.astro` | 列表卡片、分页与统一 SVG 图标 |
 | `src/styles/site.css` | 前台主题变量、透明卡片、正文排版、断点和动效降级 |
 | `server/themes.mjs`、`src/styles/kiln.css`、`src/scripts/kiln.ts`、`src/scripts/mascot-scene.ts`、`src/components/Mascot.astro`、`MascotStage.astro` | 可选前台主题登记；窑火主题样式（全部限定在 `:root[data-skin=kiln]`）、交互、吉祥物动作调度（山坡几何与动作选择为可测试纯函数）、像素吉祥物与舞台 |
-| `src/scripts/site.ts` | 主题、移动菜单、搜索、代码复制、图片放大、目录高亮、评论与计数；启动背景动画 |
+| `src/scripts/site.ts` | 主题、移动菜单、搜索、代码复制、图片放大、目录高亮、评论与计数；启动背景动画。`boot()` 每次完整加载执行一次（全局与保留区域），`page()` 在每次 `astro:page-load`（含首次）为替换后的页面重新绑定 |
 | `src/scripts/background.ts` | 共享 Canvas 生命周期；Dream 星点与短流星、窑火余烬两个场景；尺寸变化、页面隐藏/恢复与减少动态偏好 |
 | `src/lib/content.mjs` | 构建快照读取、公开文章排序、摘要、正文转换、友链特殊渲染与资源映射 |
 | `src/pages/` | 静态路由和索引，见下表 |
@@ -110,6 +111,8 @@ flowchart LR
 沿用本地 WenCang 字体（Dream），在 Site.astro 预加载；列表标题 22.4px/1.25，摘要 15.4px/1.5，正文 16px/1.8，手机继续使用其独立字号/行距。明暗主题使用 CSS 变量与 data-theme，用户选择保存在 localStorage；无有效手动选择时跟随系统变化。
 
 背景动态为缓慢向右上漂移、闪烁的星点与偶发短流星，最多 300 星点、2 条流星，30 FPS、DPR 上限 2。页面隐藏/pagehide 暂停，恢复后继续；prefers-reduced-motion 停止并清空背景动画，同时关闭卡片入场、头像旋转和过渡，返回顶部也改为即时滚动。
+
+站内导航使用 Astro `ClientRouter`（`astro.config.mjs` 开启悬停/聚焦预取）：同源 HTML 链接、分页、搜索结果与浏览器前进后退都只替换 `<body>`，不整页刷新；非 HTML 资源（RSS、站点地图、媒体）、外部链接和修饰键点击仍由浏览器正常处理。背景层、Canvas、左栏资料卡、公告卡、移动抽屉、页脚、搜索弹层和进度条以 `transition:persist` 保留，吉祥物场景与余烬不中断；顶栏、主内容、右栏目录每页替换。动效：整页 0.26s 交叉淡化（相同区域视觉不变），新主内容卡片沿用各主题入场动画；左栏无动画即时切换，避免移动中的吉祥物产生残影；当前导航下划线改为 `.nav-indicator` 元素并在两项之间滑动；加载超过 140ms 时页面顶部显示细进度条。切换前把当前 `data-theme` 写入新页面根元素（否则会被新页面的根属性覆盖），关闭搜索弹层和移动抽屉，并标记 `data-routed` 让替换后的顶栏跳过首屏入场动画；新页面的打包脚本路径与当前不同（期间重新发布过）时改为整页加载，避免混用两版脚本。不支持 View Transitions 的浏览器直接替换无动画；减少动态偏好下所有切换动画与进度条关闭。保留区域的卡片在首次入场后标记 `data-settled`，重新挂载时不再重播入场。文章页计数、评论、点赞、目录高亮、窑火卡片显现与阅读进度在每次切换后重新初始化。
 
 ### 页脚备案信息
 
